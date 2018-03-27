@@ -1,0 +1,7 @@
+[run]
+branch = True
+source = limit
+omit = limit/tests/*,limit/openstack/*
+
+[report]
+ignore_errors = True
