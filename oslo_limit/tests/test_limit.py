@@ -91,3 +91,66 @@ class TestProjectClaim(base.BaseTestCase):
                 invalid_quantity,
                 quantity=invalid_quantity
             )
+
+
+class TestEnforcer(base.BaseTestCase):
+
+    def setUp(self):
+        super(TestEnforcer, self).setUp()
+        self.resource_name = uuid.uuid4().hex
+        self.project_id = uuid.uuid4().hex
+        self.quantity = 10
+        self.claim = limit.ProjectClaim(
+            self.resource_name, self.project_id, quantity=self.quantity
+        )
+
+    def _get_usage_for_project(self, project_id):
+        return 8
+
+    def test_required_parameters(self):
+        enforcer = limit.Enforcer(self.claim)
+
+        self.assertEqual(self.claim, enforcer.claim)
+        self.assertIsNone(enforcer.callback)
+        self.assertTrue(enforcer.verify)
+
+    def test_optional_parameters(self):
+        callback = self._get_usage_for_project
+        enforcer = limit.Enforcer(self.claim, callback=callback, verify=True)
+
+        self.assertEqual(self.claim, enforcer.claim)
+        self.assertEqual(self._get_usage_for_project, enforcer.callback)
+        self.assertTrue(enforcer.verify)
+
+    def test_callback_must_be_callable(self):
+        invalid_callback_types = [uuid.uuid4().hex, 5, 5.1]
+
+        for invalid_callback in invalid_callback_types:
+            self.assertRaises(
+                ValueError,
+                limit.Enforcer,
+                self.claim,
+                callback=invalid_callback
+            )
+
+    def test_verify_must_be_boolean(self):
+        invalid_verify_types = [uuid.uuid4().hex, 5, 5.1]
+
+        for invalid_verify in invalid_verify_types:
+            self.assertRaises(
+                ValueError,
+                limit.Enforcer,
+                self.claim,
+                callback=self._get_usage_for_project,
+                verify=invalid_verify
+            )
+
+    def test_claim_must_be_an_instance_of_project_claim(self):
+        invalid_claim_types = [uuid.uuid4().hex, 5, 5.1, True, False, [], {}]
+
+        for invalid_claim in invalid_claim_types:
+            self.assertRaises(
+                ValueError,
+                limit.Enforcer,
+                invalid_claim,
+            )

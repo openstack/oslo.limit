@@ -44,3 +44,42 @@ class ProjectClaim(object):
         self.resource_name = resource_name
         self.project_id = project_id
         self.quantity = quantity
+
+
+class Enforcer(object):
+
+    def __init__(self, claim, callback=None, verify=True):
+        """Context manager for checking usage against resource claims.
+
+        :param claim: An object containing information about the claim.
+        :type claim: ``oslo_limit.limit.ProjectClaim``
+        :param callback: A callable function that accepts a project_id string
+                         as a parameter and calculates the current usage of a
+                         resource.
+        :type callable function:
+        :param verify: Boolean denoting whether or not to verify the new usage
+                       after executing a claim. This can be useful for handling
+                       race conditions between clients claiming resources.
+        :type verify: boolean
+
+        """
+
+        if not isinstance(claim, ProjectClaim):
+            msg = 'claim must be an instance of oslo_limit.limit.ProjectClaim.'
+            raise ValueError(msg)
+        if callback and not callable(callback):
+            msg = 'callback must be a callable function.'
+            raise ValueError(msg)
+        if verify and not isinstance(verify, bool):
+            msg = 'verify must be a boolean value.'
+            raise ValueError(msg)
+
+        self.claim = claim
+        self.callback = callback
+        self.verify = verify
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        pass
