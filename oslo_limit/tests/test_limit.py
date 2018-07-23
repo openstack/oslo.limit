@@ -21,8 +21,9 @@ Tests for `limit` module.
 
 import uuid
 
-from oslo_limit import limit
 from oslotest import base
+
+from oslo_limit import limit
 
 
 class TestProjectClaim(base.BaseTestCase):
