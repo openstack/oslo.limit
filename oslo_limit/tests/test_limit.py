@@ -80,7 +80,6 @@ class TestProjectClaim(base.BaseTestCase):
 
     def test_quantity_must_be_an_integer(self):
         resource_name = uuid.uuid4().hex
-        project_id = uuid.uuid4().hex
         invalid_quantity_types = ['five', 5.5, [5], {5: 5}]
 
         for invalid_quantity in invalid_quantity_types:
