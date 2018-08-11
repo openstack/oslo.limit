@@ -1,8 +1,7 @@
-====================================
-  oslo.limit Installation Tutorial
-====================================
+==============
+ Installation
+==============
 
-.. toctree::
-   :maxdepth: 1
+At the command line::
 
-   installation
+    $ pip install oslo.limit
