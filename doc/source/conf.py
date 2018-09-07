@@ -46,3 +46,5 @@ add_module_names = True
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
+
+html_theme = 'openstackdocs'
