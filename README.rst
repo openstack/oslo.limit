@@ -24,6 +24,6 @@ Oslo.limit is the limit enforcement library to assist with quota calculation.
 It aims to provide support for quota enforcement across all OpenStack services.
 
 * Free software: Apache license
-* Documentation: http://docs.openstack.org/developer/oslo.limit
+* Documentation: https://docs.openstack.org/oslo.limit/latest/
 * Source: http://git.openstack.org/cgit/openstack/oslo.limit
 * Bugs: http://bugs.launchpad.net/oslo.limit
