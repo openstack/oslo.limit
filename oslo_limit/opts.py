@@ -10,17 +10,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-__all__ = [
-    'list_opts',
-    'register_opts',
-]
-
 import copy
 
 from keystoneauth1 import loading
 from oslo_config import cfg
 
 from oslo_limit._i18n import _
+
+__all__ = [
+    'list_opts',
+    'register_opts',
+]
 
 CONF = cfg.CONF
 
