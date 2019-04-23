@@ -25,5 +25,5 @@ It aims to provide support for quota enforcement across all OpenStack services.
 
 * Free software: Apache license
 * Documentation: https://docs.openstack.org/oslo.limit/latest/
-* Source: http://git.openstack.org/cgit/openstack/oslo.limit
+* Source: http://opendev.org/openstack/oslo.limit
 * Bugs: http://bugs.launchpad.net/oslo.limit
