@@ -15,7 +15,7 @@
 
 class Enforcer(object):
 
-    def __init__(self, deltas, callback=None, verify=True):
+    def __init__(self, deltas, callback=None):
         """An object for checking usage against resource limits and requests.
 
         :param deltas: An dictionary containing resource names as keys and
@@ -25,11 +25,6 @@ class Enforcer(object):
                          as a parameter and calculates the current usage of a
                          resource.
         :type callable function:
-        :param verify: Boolean denoting whether or not to verify the new usage
-                       after checking the resource delta. This can be useful
-                       for handling race conditions between clients claiming
-                       resources.
-        :type verify: boolean
 
         """
 
@@ -39,13 +34,9 @@ class Enforcer(object):
         if callback and not callable(callback):
             msg = 'callback must be a callable function.'
             raise ValueError(msg)
-        if verify and not isinstance(verify, bool):
-            msg = 'verify must be a boolean value.'
-            raise ValueError(msg)
 
         self.deltas = deltas
         self.callback = callback
-        self.verify = verify
 
     def __enter__(self):
         pass

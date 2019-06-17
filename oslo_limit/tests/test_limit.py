@@ -40,15 +40,13 @@ class TestEnforcer(base.BaseTestCase):
 
         self.assertEqual(self.deltas, enforcer.deltas)
         self.assertIsNone(enforcer.callback)
-        self.assertTrue(enforcer.verify)
 
     def test_optional_parameters(self):
         callback = self._get_usage_for_project
-        enforcer = limit.Enforcer(self.deltas, callback=callback, verify=True)
+        enforcer = limit.Enforcer(self.deltas, callback=callback)
 
         self.assertEqual(self.deltas, enforcer.deltas)
         self.assertEqual(self._get_usage_for_project, enforcer.callback)
-        self.assertTrue(enforcer.verify)
 
     def test_callback_must_be_callable(self):
         invalid_callback_types = [uuid.uuid4().hex, 5, 5.1]
@@ -59,18 +57,6 @@ class TestEnforcer(base.BaseTestCase):
                 limit.Enforcer,
                 self.deltas,
                 callback=invalid_callback
-            )
-
-    def test_verify_must_be_boolean(self):
-        invalid_verify_types = [uuid.uuid4().hex, 5, 5.1]
-
-        for invalid_verify in invalid_verify_types:
-            self.assertRaises(
-                ValueError,
-                limit.Enforcer,
-                self.deltas,
-                callback=self._get_usage_for_project,
-                verify=invalid_verify
             )
 
     def test_deltas_must_be_a_dictionary(self):
