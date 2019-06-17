@@ -12,28 +12,50 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import six
+
 
 class Enforcer(object):
 
-    def __init__(self, deltas, callback=None):
+    def __init__(self, usage_callback):
         """An object for checking usage against resource limits and requests.
 
-        :param deltas: An dictionary containing resource names as keys and
-                       requests resource quantities as values.
-        :type deltas: dictionary
-        :param callback: A callable function that accepts a project_id string
-                         as a parameter and calculates the current usage of a
-                         resource.
+        :param usage_callback: A callable function that accepts a project_id
+                               string as a parameter and calculates the current
+                               usage of a resource.
         :type callable function:
 
         """
+        if not callable(usage_callback):
+            msg = 'usage_callback must be a callable function.'
+            raise ValueError(msg)
 
+        self.usage_callback = usage_callback
+
+    def enforce(self, project_id, deltas, filter_resources=None):
+        """Check resource usage against limits and request deltas.
+
+        :param project_id: The project to check usage and enforce limits
+                           against.
+        :type project_id: string
+        :param deltas: An dictionary containing resource names as keys and
+                       requests resource quantities as values.
+        :type deltas: dictionary
+        :param filter_resources: A list of strings containing the resource
+                                 names to filter the return values of the
+                                 usage_callback. This is a performance
+                                 optimization in the event the caller doesn't
+                                 want the usage_callback to collect all
+                                 resources owned by the service. By default,
+                                 no resources will be filtered.
+
+        """
+        if not isinstance(project_id, six.text_type):
+            msg = 'project_id must be a string.'
+            raise ValueError(msg)
         if not isinstance(deltas, dict):
             msg = 'deltas must be a dictionary.'
             raise ValueError(msg)
-        if callback and not callable(callback):
-            msg = 'callback must be a callable function.'
+        if not isinstance(filter_resources, list):
+            msg = 'filter_resources must be a list.'
             raise ValueError(msg)
-
-        self.deltas = deltas
-        self.callback = callback
