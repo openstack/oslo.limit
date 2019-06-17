@@ -12,60 +12,29 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import six
-
-
-class ProjectClaim(object):
-
-    def __init__(self, resource_name, project_id, quantity=None):
-        """An object representing a claim of resources against a project.
-
-        :param resource_name: A string representing the resource to claim.
-        :type resource_name: string
-        :param project_id: The ID of the project claiming the resources.
-        :type project_id: string
-        :param quantity: The number of resources being claimed.
-        :type quantity: integer
-
-        """
-
-        if not isinstance(resource_name, six.string_types):
-            msg = 'resource_name must be a string type.'
-            raise ValueError(msg)
-
-        if not isinstance(project_id, six.string_types):
-            msg = 'project_id must be a string type.'
-            raise ValueError(msg)
-
-        if quantity and not isinstance(quantity, int):
-            msg = 'quantity must be an integer.'
-            raise ValueError(msg)
-
-        self.resource_name = resource_name
-        self.project_id = project_id
-        self.quantity = quantity
-
 
 class Enforcer(object):
 
-    def __init__(self, claim, callback=None, verify=True):
-        """Context manager for checking usage against resource claims.
+    def __init__(self, deltas, callback=None, verify=True):
+        """An object for checking usage against resource limits and requests.
 
-        :param claim: An object containing information about the claim.
-        :type claim: ``oslo_limit.limit.ProjectClaim``
+        :param deltas: An dictionary containing resource names as keys and
+                       requests resource quantities as values.
+        :type deltas: dictionary
         :param callback: A callable function that accepts a project_id string
                          as a parameter and calculates the current usage of a
                          resource.
         :type callable function:
         :param verify: Boolean denoting whether or not to verify the new usage
-                       after executing a claim. This can be useful for handling
-                       race conditions between clients claiming resources.
+                       after checking the resource delta. This can be useful
+                       for handling race conditions between clients claiming
+                       resources.
         :type verify: boolean
 
         """
 
-        if not isinstance(claim, ProjectClaim):
-            msg = 'claim must be an instance of oslo_limit.limit.ProjectClaim.'
+        if not isinstance(deltas, dict):
+            msg = 'deltas must be a dictionary.'
             raise ValueError(msg)
         if callback and not callable(callback):
             msg = 'callback must be a callable function.'
@@ -74,7 +43,7 @@ class Enforcer(object):
             msg = 'verify must be a boolean value.'
             raise ValueError(msg)
 
-        self.claim = claim
+        self.deltas = deltas
         self.callback = callback
         self.verify = verify
 
