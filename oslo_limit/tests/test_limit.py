@@ -19,11 +19,17 @@ test_limit
 Tests for `limit` module.
 """
 
+import mock
 import uuid
 
+from oslo_config import cfg
+from oslo_config import fixture as config_fixture
 from oslotest import base
 
 from oslo_limit import limit
+from oslo_limit import opts
+
+CONF = cfg.CONF
 
 
 class TestEnforcer(base.BaseTestCase):
@@ -31,6 +37,18 @@ class TestEnforcer(base.BaseTestCase):
     def setUp(self):
         super(TestEnforcer, self).setUp()
         self.deltas = dict()
+        self.config_fixture = self.useFixture(config_fixture.Config(CONF))
+        self.config_fixture.config(
+            group='oslo_limit',
+            auth_type='password'
+        )
+        opts.register_opts(CONF)
+        self.config_fixture.config(
+            group='oslo_limit',
+            auth_url='http://identity.example.com'
+        )
+
+        limit._SDK_CONNECTION = mock.MagicMock()
 
     def _get_usage_for_project(self, project_id):
         return 8

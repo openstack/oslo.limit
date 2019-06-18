@@ -12,7 +12,41 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from keystoneauth1 import exceptions as ksa_exceptions
+from keystoneauth1 import loading
+from openstack import connection
+from oslo_config import cfg
+from oslo_log import log
 import six
+
+from oslo_limit import exception
+from oslo_limit import opts
+
+CONF = cfg.CONF
+LOG = log.getLogger(__name__)
+_SDK_CONNECTION = None
+opts.register_opts(CONF)
+
+
+def _get_keystone_connection():
+    global _SDK_CONNECTION
+    if not _SDK_CONNECTION:
+        try:
+            auth = loading.load_auth_from_conf_options(
+                CONF, group='oslo_limit')
+            session = loading.load_session_from_conf_options(
+                CONF, group='oslo_limit', auth=auth)
+            _SDK_CONNECTION = connection.Connection(session=session).identity
+        except (ksa_exceptions.NoMatchingPlugin,
+                ksa_exceptions.MissingRequiredOptions,
+                ksa_exceptions.MissingAuthPlugin,
+                ksa_exceptions.DiscoveryFailure,
+                ksa_exceptions.Unauthorized) as e:
+            msg = 'Unable to initialize OpenStackSDK session: %s' % e
+            LOG.error(msg)
+            raise exception.SessionInitError(e)
+
+    return _SDK_CONNECTION
 
 
 class Enforcer(object):
@@ -31,6 +65,7 @@ class Enforcer(object):
             raise ValueError(msg)
 
         self.usage_callback = usage_callback
+        self.connection = _get_keystone_connection()
 
     def enforce(self, project_id, deltas, resource_filters=None):
         """Check resource usage against limits and request deltas.
@@ -56,6 +91,6 @@ class Enforcer(object):
         if not isinstance(deltas, dict):
             msg = 'deltas must be a dictionary.'
             raise ValueError(msg)
-        if not isinstance(resource_filters, list):
+        if resource_filters and not isinstance(resource_filters, list):
             msg = 'resource_filters must be a list.'
             raise ValueError(msg)

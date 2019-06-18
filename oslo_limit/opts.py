@@ -52,4 +52,11 @@ def register_opts(conf):
     loading.register_session_conf_options(CONF, _option_group)
     loading.register_adapter_conf_options(CONF, _option_group,
                                           include_deprecated=False)
+
+    loading.register_auth_conf_options(CONF, _option_group)
+    plugin_name = CONF.oslo_limit.auth_type
+    if plugin_name:
+        plugin_loader = loading.get_plugin_loader(plugin_name)
+        plugin_opts = loading.get_auth_plugin_conf_options(plugin_loader)
+        CONF.register_opts(plugin_opts, group=_option_group)
     conf.register_opts(_options, group=_option_group)
