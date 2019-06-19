@@ -66,23 +66,49 @@ class Enforcer(object):
 
         self.usage_callback = usage_callback
         self.connection = _get_keystone_connection()
+        self.model = self._get_model_impl()
 
-    def enforce(self, project_id, deltas, resource_filters=None):
-        """Check resource usage against limits and request deltas.
+    def _get_enforcement_model(self):
+        """Query keystone for the configured enforcement model."""
+        return self.connection.get('/limits/model').json()['model']['name']
+
+    def _get_model_impl(self):
+        """get the enforcement model based on configured model in keystone."""
+        model = self._get_enforcement_model()
+        for impl in _MODELS:
+            if model == impl.name:
+                return impl()
+        raise ValueError("enforcement model %s is not supported" % model)
+
+    def enforce(self, project_id, deltas):
+        """Check resource usage against limits for resources in deltas
+
+        From the deltas we extract the list of resource types that need to
+        have limits enforced on them.
+
+        From keystone we fetch limits relating to this project_id and the
+        endpoint specified in the configuration.
+
+        Using the usage_callback specified when creating the enforcer,
+        we fetch the existing usage.
+
+        We then add the existing usage to the provided deltas to get
+        the total proposed usage. This total proposed usage is then
+        compared against all appropriate limits that apply.
+
+        Note if there are no registered limits for a given resource type,
+        we fail the enforce in the same way as if we defaulted to
+        a limit of zero, i.e. do not allow any use of a resource type
+        that does not have a registered limit.
 
         :param project_id: The project to check usage and enforce limits
                            against.
         :type project_id: string
         :param deltas: An dictionary containing resource names as keys and
-                       requests resource quantities as values.
+                       requests resource quantities as positive integers.
+                       We only check limits for resources in deltas.
+                       Specify a quantity of zero to check current usage.
         :type deltas: dictionary
-        :param resource_filters: A list of strings containing the resource
-                                 names to filter the return values of the
-                                 usage_callback. This is a performance
-                                 optimization in the event the caller doesn't
-                                 want the usage_callback to collect all
-                                 resources owned by the service. By default,
-                                 no resources will be filtered.
 
         """
         if not isinstance(project_id, six.text_type):
@@ -91,6 +117,30 @@ class Enforcer(object):
         if not isinstance(deltas, dict):
             msg = 'deltas must be a dictionary.'
             raise ValueError(msg)
-        if resource_filters and not isinstance(resource_filters, list):
-            msg = 'resource_filters must be a list.'
-            raise ValueError(msg)
+
+        for k, v in iter(deltas.items()):
+            if not isinstance(k, six.text_type):
+                raise ValueError('resource name is not a string.')
+            elif not isinstance(v, int):
+                raise ValueError('resource limit is not an integer.')
+
+        self.model.enforce(project_id, deltas)
+
+
+class _FlatEnforcer(object):
+
+    name = 'flat'
+
+    def enforce(self, project_id, deltas):
+        raise NotImplementedError()
+
+
+class _StrictTwoLevelEnforcer(object):
+
+    name = 'strict-two-level'
+
+    def enforce(self, project_id, deltas):
+        raise NotImplementedError()
+
+
+_MODELS = [_FlatEnforcer, _StrictTwoLevelEnforcer]

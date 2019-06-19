@@ -49,6 +49,9 @@ class TestEnforcer(base.BaseTestCase):
         )
 
         limit._SDK_CONNECTION = mock.MagicMock()
+        json = mock.MagicMock()
+        json.json.return_value = {"model": {"name": "flat"}}
+        limit._SDK_CONNECTION.get.return_value = json
 
     def _get_usage_for_project(self, project_id):
         return 8
@@ -79,3 +82,24 @@ class TestEnforcer(base.BaseTestCase):
                 project_id,
                 invalid_delta
             )
+
+    def test_set_model_impl(self):
+        enforcer = limit.Enforcer(self._get_usage_for_project)
+        self.assertIsInstance(enforcer.model, limit._FlatEnforcer)
+
+    def test_get_model_impl(self):
+        json = mock.MagicMock()
+        limit._SDK_CONNECTION.get.return_value = json
+
+        json.json.return_value = {"model": {"name": "flat"}}
+        enforcer = limit.Enforcer(self._get_usage_for_project)
+        flat_impl = enforcer._get_model_impl()
+        self.assertIsInstance(flat_impl, limit._FlatEnforcer)
+
+        json.json.return_value = {"model": {"name": "strict-two-level"}}
+        flat_impl = enforcer._get_model_impl()
+        self.assertIsInstance(flat_impl, limit._StrictTwoLevelEnforcer)
+
+        json.json.return_value = {"model": {"name": "foo"}}
+        e = self.assertRaises(ValueError, enforcer._get_model_impl)
+        self.assertEqual("enforcement model foo is not supported", str(e))
