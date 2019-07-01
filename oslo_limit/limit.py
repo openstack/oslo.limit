@@ -32,7 +32,7 @@ class Enforcer(object):
 
         self.usage_callback = usage_callback
 
-    def enforce(self, project_id, deltas, filter_resources=None):
+    def enforce(self, project_id, deltas, resource_filters=None):
         """Check resource usage against limits and request deltas.
 
         :param project_id: The project to check usage and enforce limits
@@ -41,7 +41,7 @@ class Enforcer(object):
         :param deltas: An dictionary containing resource names as keys and
                        requests resource quantities as values.
         :type deltas: dictionary
-        :param filter_resources: A list of strings containing the resource
+        :param resource_filters: A list of strings containing the resource
                                  names to filter the return values of the
                                  usage_callback. This is a performance
                                  optimization in the event the caller doesn't
@@ -56,6 +56,6 @@ class Enforcer(object):
         if not isinstance(deltas, dict):
             msg = 'deltas must be a dictionary.'
             raise ValueError(msg)
-        if not isinstance(filter_resources, list):
-            msg = 'filter_resources must be a list.'
+        if not isinstance(resource_filters, list):
+            msg = 'resource_filters must be a list.'
             raise ValueError(msg)
