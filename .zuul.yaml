@@ -1,3 +1,29 @@
+- job:
+    name: oslo-limit-functional-devstack
+    parent: devstack
+    description:
+      This job sets up a minimal devstack deployment, configures various usage
+      and limit scenarios, and verifies usage enforcement based on existing
+      usage.
+    timeout: 9000
+    vars:
+      devstack_localrc:
+        DATABASE_PASSWORD: secretdatabase
+        ADMIN_PASSWORD: secretadmin
+        LOGFILE: /opt/stack/logs/devstacklog.txt
+        LOG_COLOR: false
+        VERBOSE: true
+        VERBOSE_NO_TIMESTAMP: true
+      devstack_services:
+        # Ignore all services by setting "disable_all_service". We do this
+        # because we only really need keystone running to store unified limits.
+        # These functional tests are not testing enforcement between keystone and
+        # other services like nova and cinder. After this, we should only enable
+        # exactly what we need to run keystone.
+        base: false
+        mysql: true
+        key: true
+
 - project:
     templates:
       - check-requirements
@@ -9,3 +35,9 @@
       - periodic-stable-jobs
       - publish-openstack-docs-pti
       - release-notes-jobs-python3
+    check:
+      jobs:
+        - oslo-limit-functional-devstack
+    gate:
+      jobs:
+        - oslo-limit-functional-devstack
