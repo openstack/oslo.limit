@@ -21,3 +21,15 @@ class SessionInitError(Exception):
             "Can't initialise OpenStackSDK session: %(reason)s."
         ) % {'reason': reason}
         super(SessionInitError, self).__init__(msg)
+
+
+class LimitNotFound(Exception):
+    def __init__(self, resource, service, region):
+        msg = _("Can't find the limit for resource %(resource)s "
+                "for service %(service)s in region %(region)s."
+                ) % {
+            'resource': resource, 'service': service, 'region': region}
+        self.resource = resource
+        self.service = service
+        self.region = region
+        super(LimitNotFound, self).__init__(msg)

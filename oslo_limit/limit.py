@@ -144,3 +144,69 @@ class _StrictTwoLevelEnforcer(object):
 
 
 _MODELS = [_FlatEnforcer, _StrictTwoLevelEnforcer]
+
+
+class _EnforcerUtils(object):
+    """Logic common used by multiple enforcers"""
+
+    def __init__(self):
+        self.connection = _get_keystone_connection()
+
+        # get and cache endpoint info
+        endpoint_id = CONF.oslo_limit.endpoint_id
+        self._endpoint = self.connection.get_endpoint(endpoint_id)
+        if not self._endpoint:
+            raise ValueError("can't find endpoint for %s" % endpoint_id)
+        self._service_id = self._endpoint.service_id
+        self._region_id = self._endpoint.region_id
+
+    def get_project_limits(self, project_id, resource_names):
+        """Get all the limits for given project a resource_name list
+
+        We will raise
+        :param project_id:
+        :param resource_names: list of resource_name strings
+        :return: list of (resource_name,limit) pairs
+
+        :raises exception.LimitNotFound if no limit is found
+        """
+        # Using a list to preserver the resource_name order
+        project_limits = []
+        for resource_name in resource_names:
+            limit = self._get_limit(project_id, resource_name)
+            project_limits.append((resource_name, limit))
+        return project_limits
+
+    def _get_limit(self, project_id, resource_name):
+        # TODO(johngarbutt): might need to cache here
+        project_limit = self._get_project_limit(project_id, resource_name)
+        if project_limit:
+            return project_limit.resource_limit
+
+        registered_limit = self._get_registered_limit(resource_name)
+        if registered_limit:
+            return registered_limit.default_limit
+
+        raise exception.LimitNotFound(
+            resource_name, self._service_id, self._region_id)
+
+    def _get_project_limit(self, project_id, resource_name):
+        limit = self.connection.limits(
+            service_id=self._service_id,
+            region_id=self._region_id,
+            resource_name=resource_name,
+            project_id=project_id)
+        try:
+            return next(limit)
+        except StopIteration:
+            return None
+
+    def _get_registered_limit(self, resource_name):
+        reg_limit = self.connection.registered_limits(
+            service_id=self._service_id,
+            region_id=self._region_id,
+            resource_name=resource_name)
+        try:
+            return next(reg_limit)
+        except StopIteration:
+            return None
