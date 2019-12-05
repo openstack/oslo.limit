@@ -57,27 +57,25 @@ class Enforcer(object):
         :param usage_callback: A callable function that accepts a project_id
                                string as a parameter and calculates the current
                                usage of a resource.
-        :type callable function:
-
+        :type usage_callback: callable function
         """
         if not callable(usage_callback):
             msg = 'usage_callback must be a callable function.'
             raise ValueError(msg)
 
-        self.usage_callback = usage_callback
         self.connection = _get_keystone_connection()
-        self.model = self._get_model_impl()
+        self.model = self._get_model_impl(usage_callback)
 
     def _get_enforcement_model(self):
         """Query keystone for the configured enforcement model."""
         return self.connection.get('/limits/model').json()['model']['name']
 
-    def _get_model_impl(self):
+    def _get_model_impl(self, usage_callback):
         """get the enforcement model based on configured model in keystone."""
         model = self._get_enforcement_model()
         for impl in _MODELS:
             if model == impl.name:
-                return impl()
+                return impl(usage_callback)
         raise ValueError("enforcement model %s is not supported" % model)
 
     def enforce(self, project_id, deltas):
@@ -110,16 +108,17 @@ class Enforcer(object):
                        Specify a quantity of zero to check current usage.
         :type deltas: dictionary
 
+        :raises exception.ClaimExceedsLimit: when over limits
         """
-        if not isinstance(project_id, six.text_type):
-            msg = 'project_id must be a string.'
+        if not project_id or not isinstance(project_id, six.string_types):
+            msg = 'project_id must be a non-empty string.'
             raise ValueError(msg)
-        if not isinstance(deltas, dict):
-            msg = 'deltas must be a dictionary.'
+        if not isinstance(deltas, dict) or len(deltas) == 0:
+            msg = 'deltas must be a non-empty dictionary.'
             raise ValueError(msg)
 
-        for k, v in iter(deltas.items()):
-            if not isinstance(k, six.text_type):
+        for k, v in deltas.items():
+            if not isinstance(k, six.string_types):
                 raise ValueError('resource name is not a string.')
             elif not isinstance(v, int):
                 raise ValueError('resource limit is not an integer.')
@@ -131,19 +130,43 @@ class _FlatEnforcer(object):
 
     name = 'flat'
 
+    def __init__(self, usage_callback):
+        self._usage_callback = usage_callback
+        self._utils = _EnforcerUtils()
+
     def enforce(self, project_id, deltas):
-        raise NotImplementedError()
+        resources_to_check = list(deltas.keys())
+        # Always check the limits in the same order, for predictable errors
+        resources_to_check.sort()
+
+        project_limits = self._utils.get_project_limits(project_id,
+                                                        resources_to_check)
+        current_usage = self._usage_callback(project_id, resources_to_check)
+
+        self._utils.enforce_limits(project_id, project_limits,
+                                   current_usage, deltas)
 
 
 class _StrictTwoLevelEnforcer(object):
 
     name = 'strict-two-level'
 
+    def __init__(self, usage_callback):
+        self._usage_callback = usage_callback
+
     def enforce(self, project_id, deltas):
         raise NotImplementedError()
 
 
 _MODELS = [_FlatEnforcer, _StrictTwoLevelEnforcer]
+
+
+class _LimitNotFound(Exception):
+    def __init__(self, resource):
+        msg = "Can't find the limit for resource %(resource)s" % {
+            'resource': resource}
+        self.resource = resource
+        super(_LimitNotFound, self).__init__(msg)
 
 
 class _EnforcerUtils(object):
@@ -160,21 +183,61 @@ class _EnforcerUtils(object):
         self._service_id = self._endpoint.service_id
         self._region_id = self._endpoint.region_id
 
+    @staticmethod
+    def enforce_limits(project_id, limits, current_usage, deltas):
+        """Check that proposed usage is not over given limits
+
+        :param project_id: project being checked
+        :param limits: list of (resource_name,limit) pairs
+        :param current_usage: dict of resource name and current usage
+        :param deltas: dict of resource name and proposed additional usage
+
+        :raises exception.ClaimExceedsLimit: raise if over limit
+        """
+        over_limit_list = []
+        for resource_name, limit in limits:
+            if resource_name not in current_usage:
+                msg = "unable to get current usage for %s" % resource_name
+                raise ValueError(msg)
+
+            current = int(current_usage[resource_name])
+            delta = int(deltas[resource_name])
+            proposed_usage_total = current + delta
+            if proposed_usage_total > limit:
+                over_limit_list.append(exception.OverLimitInfo(
+                    resource_name, limit, current, delta))
+
+        if len(over_limit_list) > 0:
+            LOG.debug("hit limit for project: %s", over_limit_list)
+            raise exception.ProjectOverLimit(project_id, over_limit_list)
+
     def get_project_limits(self, project_id, resource_names):
         """Get all the limits for given project a resource_name list
 
-        We will raise
+        We will raise ClaimExceedsLimit if no limit is found to ensure that
+        all clients of this library react to this situation in the same way.
+
         :param project_id:
         :param resource_names: list of resource_name strings
         :return: list of (resource_name,limit) pairs
 
-        :raises exception.LimitNotFound if no limit is found
+        :raises exception.ClaimExceedsLimit: if no limit is found
         """
         # Using a list to preserver the resource_name order
         project_limits = []
+        missing_limits = []
         for resource_name in resource_names:
-            limit = self._get_limit(project_id, resource_name)
-            project_limits.append((resource_name, limit))
+            try:
+                limit = self._get_limit(project_id, resource_name)
+                project_limits.append((resource_name, limit))
+            except _LimitNotFound:
+                missing_limits.append(resource_name)
+
+        if len(missing_limits) > 0:
+            over_limit_list = [exception.OverLimitInfo(name, 0, 0, 0)
+                               for name in missing_limits]
+            raise exception.ProjectOverLimit(project_id, over_limit_list)
+
         return project_limits
 
     def _get_limit(self, project_id, resource_name):
@@ -187,8 +250,12 @@ class _EnforcerUtils(object):
         if registered_limit:
             return registered_limit.default_limit
 
-        raise exception.LimitNotFound(
-            resource_name, self._service_id, self._region_id)
+        LOG.error(
+            "Unable to find registered limit for resource "
+            "%(resource)s for %(service)s in region %(region)s.",
+            {"resource": resource_name, "service": self._service_id,
+             "region": self._region_id}, exec_info=False)
+        raise _LimitNotFound(resource_name)
 
     def _get_project_limit(self, project_id, resource_name):
         limit = self.connection.limits(
