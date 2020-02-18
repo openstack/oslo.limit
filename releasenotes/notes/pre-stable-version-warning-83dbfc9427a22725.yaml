@@ -1,0 +1,11 @@
+---
+critical:
+  - |
+    oslo.limit mistakenly released as 1.0.0. This library is still
+    under heavy development and the API isn't stabilized yet so oslo.limit
+    isn't actually ready to be consumed yet.
+    This library is still a pre-1.0.
+    For further reading about this issue please take a look to the
+    mailing list discussion [1]
+
+    [1] http://lists.openstack.org/pipermail/openstack-discuss/2020-February/012606.html
