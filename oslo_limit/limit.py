@@ -17,7 +17,6 @@ from keystoneauth1 import loading
 from openstack import connection
 from oslo_config import cfg
 from oslo_log import log
-import six
 
 from oslo_limit import exception
 from oslo_limit import opts
@@ -110,7 +109,7 @@ class Enforcer(object):
 
         :raises exception.ClaimExceedsLimit: when over limits
         """
-        if not project_id or not isinstance(project_id, six.string_types):
+        if not project_id or not isinstance(project_id, str):
             msg = 'project_id must be a non-empty string.'
             raise ValueError(msg)
         if not isinstance(deltas, dict) or len(deltas) == 0:
@@ -118,7 +117,7 @@ class Enforcer(object):
             raise ValueError(msg)
 
         for k, v in deltas.items():
-            if not isinstance(k, six.string_types):
+            if not isinstance(k, str):
                 raise ValueError('resource name is not a string.')
             elif not isinstance(v, int):
                 raise ValueError('resource limit is not an integer.')
