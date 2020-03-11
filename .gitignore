@@ -55,3 +55,9 @@ doc/source/reference/api/
 # pbr generates these
 AUTHORS
 ChangeLog
+
+# reno generate these
+RELEASENOTES.rst
+releasenotes/build
+releasenotes/notes/reno.cache
+
