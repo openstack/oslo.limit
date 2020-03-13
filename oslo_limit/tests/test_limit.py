@@ -18,7 +18,7 @@ test_limit
 Tests for `limit` module.
 """
 
-import mock
+from unittest import mock
 import uuid
 
 from openstack.identity.v3 import endpoint
