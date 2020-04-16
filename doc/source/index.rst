@@ -15,6 +15,12 @@ Contents
    reference/index
    user/index
 
+Release Notes
+=============
+
+Read also the `oslo.limit Release Notes
+<https://docs.openstack.org/releasenotes/oslo.limit/>`_.
+
 Indices and tables
 ==================
 
