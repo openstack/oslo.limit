@@ -60,3 +60,81 @@ Enforcement
 Enforcement is the process of collecting usage data, limit information, and
 claims in order to make a decision about whether a user should be able to
 obtain more resources.
+
+Adding oslo.limit to a service
+==============================
+
+Configuration
+-------------
+
+The oslo.limit library will by default lookup for a ``[oslo_limit]`` section
+in the configuration file of the service. This section must contain
+standard authentication information againt Keystone service in order to query
+the unified limit APIs.
+
+Be aware that the service account requires at a minimum a reader role assigned
+on the system scope for enforcing limits, and authentication information
+**should not** contains project information as keystoneauth library will
+use it instead of system_scope.
+
+In addition to the authentication information, ``oslo_limit``
+configuration section must contain a way to identify the service in order to
+filter limits by it. This can either be a combination of ``service_name``,
+``service_type`` and ``region_name``, or simply ``endpoint_id``.
+
+Here is an example of oslo_limit configuration
+
+.. code-block:: ini
+
+    [oslo_limit]
+    auth_url = http://controller:5000
+    auth_type = password
+    user_domain_id = default
+    username = MY_SERVICE
+    system_scope = reader
+    password = MY_PASSWORD
+    service_name = my_service
+    region_name = RegionOne
+
+Create registered limit
+-----------------------
+
+Before enforcing a limit for a given resource, a registered limit **should**
+exist for that resource. Registered limits can be, for example, configured
+during service deployment.
+
+.. note::
+    Your user account must have the admin role assigned on the system scope to
+    create registered limits.
+
+Enforce a limit
+---------------
+
+Using enforcer consists mainly of defining a callback function for processing
+the current usage of a given project, then calling the ``enforce`` function
+with the amount of each resource you want to consume for a project, handling
+the possible quota exceeded exceptions.
+
+Here is a simple usage of limit enforcement
+
+.. code-block:: python
+
+    import logging
+
+    from oslo_limit import limit
+    from oslo_limit import exception as limit_exceptions
+
+    # Callback function who need to return resource usage for each
+    # resource asked in resources_names, for a given project_id
+    def callback(project_id, resource_names):
+        return {x: get_resource_usage_by_project(x, project_id) for x in resource_names}
+
+    enforcer = limit.Enforcer(callback)
+    try:
+        # Check a limit for a given project for a set of resources, resource
+        # unit are delta to be consumed
+        enforcer.enforce('project_uuid', {'my_resource': 1})
+    except limit_exceptions.ProjectOverLimit as e:
+        # What to do in case of limit exception, e contain a list of
+        # resource over quota
+        logging.error(e)
