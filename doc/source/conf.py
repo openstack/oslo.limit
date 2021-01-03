@@ -36,8 +36,8 @@ apidoc_separate_modules = True
 master_doc = 'index'
 
 # General information about the project.
-project = u'oslo.limit'
-copyright = u'2018, OpenStack Foundation'
+project = 'oslo.limit'
+copyright = '2018, OpenStack Foundation'
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 add_function_parentheses = True
