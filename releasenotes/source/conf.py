@@ -57,8 +57,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'oslo.limit Release Notes'
-copyright = u'2018, OpenStack Foundation'
+project = 'oslo.limit Release Notes'
+copyright = '2018, OpenStack Foundation'
 
 # Release  notes are version independent
 
@@ -206,8 +206,8 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     ('index', 'oslo.limitReleaseNotes.tex',
-     u'oslo.limit Release Notes Documentation',
-     u'oslo.limit Developers', 'manual'),
+     'oslo.limit Release Notes Documentation',
+     'oslo.limit Developers', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -237,8 +237,8 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'oslo.limitreleasenotes',
-     u'oslo.limit Release Notes Documentation',
-     [u'oslo.limit Developers'], 1)
+     'oslo.limit Release Notes Documentation',
+     ['oslo.limit Developers'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -252,8 +252,8 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     ('index', 'oslo.limitReleaseNotes',
-     u'oslo.limit Release Notes Documentation',
-     u'oslo.limit Developers', 'oslo.limitReleaseNotes',
+     'oslo.limit Release Notes Documentation',
+     'oslo.limit Developers', 'oslo.limitReleaseNotes',
      'Limit enforcement library for OpenStack.',
      'Miscellaneous'),
 ]
