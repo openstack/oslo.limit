@@ -138,3 +138,37 @@ Here is a simple usage of limit enforcement
         # What to do in case of limit exception, e contain a list of
         # resource over quota
         logging.error(e)
+
+Check a limit
+-------------
+
+Another usage pattern is to check a limit and usage for a given
+project, outside the scope of enforcement. This may be useful in a
+reporting API to be able to expose to a user the limit and usage
+information that the enforcer would use to judge a resource
+consumption event.
+
+.. note::
+   This should ideally not be used to provide your own enforcement of
+   limits, but rather for reporting or planning purposes.
+
+Here is a simple usage of limit reporting
+
+.. code-block:: python
+
+    import logging
+
+    from oslo_limit import limit
+
+    # Callback function who need to return resource usage for each
+    # resource asked in resources_names, for a given project_id
+    def callback(project_id, resource_names):
+        return {x: get_resource_usage_by_project(x, project_id) for x in resource_names}
+
+    enforcer = limit.Enforcer(callback)
+    usage = enforcer.calculate_usage('project_uuid', ['my_resource'])
+    logging.info('%s using %i out of %i allowed %s resource' % (
+        'project_uuid',
+        usage['my_resource'].usage,
+        usage['my_resource'].limit,
+        'my_resource'))

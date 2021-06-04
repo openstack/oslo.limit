@@ -12,6 +12,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from collections import namedtuple
+
 from keystoneauth1 import exceptions as ksa_exceptions
 from keystoneauth1 import loading
 from openstack import connection
@@ -25,6 +27,9 @@ CONF = cfg.CONF
 LOG = log.getLogger(__name__)
 _SDK_CONNECTION = None
 opts.register_opts(CONF)
+
+
+ProjectUsage = namedtuple('ProjectUsage', ['limit', 'usage'])
 
 
 def _get_keystone_connection():
@@ -124,6 +129,46 @@ class Enforcer(object):
 
         self.model.enforce(project_id, deltas)
 
+    def calculate_usage(self, project_id, resources_to_check):
+        """Calculate resource usage and limits for resources_to_check.
+
+        From the list of resources_to_check, we collect the project's
+        limit and current usage for each, exactly like we would for
+        enforce(). This is useful for reporting current project usage
+        and limits in a situation where enforcement is not desired.
+
+        This should *not* be used to conduct custom enforcement, but
+        rather only for reporting.
+
+        :param project_id: The project for which to check usage and limits.
+        :type project_id: string
+        :param resources_to_check: A list of resource names to query.
+        :type resources_to_check: list
+        :returns: A dictionary of name:limit.ProjectUsage for the
+                  requested names against the provided project.
+        """
+        if not project_id or not isinstance(project_id, str):
+            msg = 'project_id must be a non-empty string.'
+            raise ValueError(msg)
+
+        msg = ('resources_to_check must be non-empty sequence of '
+               'resource name strings')
+        try:
+            if len(resources_to_check) == 0:
+                raise ValueError(msg)
+        except TypeError:
+            raise ValueError(msg)
+
+        for resource_name in resources_to_check:
+            if not isinstance(resource_name, str):
+                raise ValueError(msg)
+
+        limits = self.model.get_project_limits(project_id, resources_to_check)
+        usage = self.model.get_project_usage(project_id, resources_to_check)
+
+        return {resource: ProjectUsage(limit, usage[resource])
+                for resource, limit in dict(limits).items()}
+
 
 class _FlatEnforcer(object):
 
@@ -133,14 +178,21 @@ class _FlatEnforcer(object):
         self._usage_callback = usage_callback
         self._utils = _EnforcerUtils()
 
+    def get_project_limits(self, project_id, resources_to_check):
+        return self._utils.get_project_limits(project_id, resources_to_check)
+
+    def get_project_usage(self, project_id, resources_to_check):
+        return self._usage_callback(project_id, resources_to_check)
+
     def enforce(self, project_id, deltas):
         resources_to_check = list(deltas.keys())
         # Always check the limits in the same order, for predictable errors
         resources_to_check.sort()
 
-        project_limits = self._utils.get_project_limits(project_id,
-                                                        resources_to_check)
-        current_usage = self._usage_callback(project_id, resources_to_check)
+        project_limits = self.get_project_limits(project_id,
+                                                 resources_to_check)
+        current_usage = self.get_project_usage(project_id,
+                                               resources_to_check)
 
         self._utils.enforce_limits(project_id, project_limits,
                                    current_usage, deltas)
@@ -152,6 +204,12 @@ class _StrictTwoLevelEnforcer(object):
 
     def __init__(self, usage_callback):
         self._usage_callback = usage_callback
+
+    def get_project_limits(self, project_id, resources_to_check):
+        raise NotImplementedError()
+
+    def get_project_usage(self, project_id, resources_to_check):
+        raise NotImplementedError()
 
     def enforce(self, project_id, deltas):
         raise NotImplementedError()

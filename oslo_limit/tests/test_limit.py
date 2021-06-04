@@ -125,6 +125,49 @@ class TestEnforcer(base.BaseTestCase):
 
         mock_enforce.assert_called_once_with(project_id, deltas)
 
+    @mock.patch.object(limit._EnforcerUtils, "get_project_limits")
+    def test_calculate_usage(self, mock_get_limits):
+        mock_usage = mock.MagicMock()
+        mock_usage.return_value = {'a': 1, 'b': 2}
+
+        project_id = uuid.uuid4().hex
+        mock_get_limits.return_value = [('a', 10), ('b', 5)]
+
+        expected = {
+            'a': limit.ProjectUsage(10, 1),
+            'b': limit.ProjectUsage(5, 2),
+        }
+
+        enforcer = limit.Enforcer(mock_usage)
+        self.assertEqual(expected, enforcer.calculate_usage(project_id,
+                                                            ['a', 'b']))
+
+    def test_calculate_usage_bad_params(self):
+        enforcer = limit.Enforcer(mock.MagicMock())
+
+        # Non-string project_id
+        self.assertRaises(ValueError,
+                          enforcer.calculate_usage,
+                          None, ['foo'])
+        self.assertRaises(ValueError,
+                          enforcer.calculate_usage,
+                          123, ['foo'])
+
+        # Zero-length resources_to_check
+        self.assertRaises(ValueError,
+                          enforcer.calculate_usage,
+                          'project', [])
+
+        # Non-sequence resources_to_check
+        self.assertRaises(ValueError,
+                          enforcer.calculate_usage,
+                          'project', 123)
+
+        # Invalid non-string value in resources_to_check
+        self.assertRaises(ValueError,
+                          enforcer.calculate_usage,
+                          'project', ['a', 123, 'b'])
+
 
 class TestFlatEnforcer(base.BaseTestCase):
     def setUp(self):
