@@ -29,6 +29,7 @@ from oslo_config import fixture as config_fixture
 from oslotest import base
 
 from oslo_limit import exception
+from oslo_limit import fixture
 from oslo_limit import limit
 from oslo_limit import opts
 
@@ -309,3 +310,41 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.assertEqual(0, over_d.limit)
         self.assertEqual(0, over_d.current_usage)
         self.assertEqual(0, over_d.delta)
+
+    def test_get_limit_cache(self, cache=True):
+        # No project limit and registered limit = 5
+        fix = self.useFixture(fixture.LimitFixture({'foo': 5}, {}))
+        project_id = uuid.uuid4().hex
+
+        utils = limit._EnforcerUtils(cache=cache)
+        foo_limit = utils._get_limit(project_id, 'foo')
+
+        self.assertEqual(5, foo_limit)
+        self.assertEqual(1, fix.mock_conn.registered_limits.call_count)
+
+        # Second call should be cached, so call_count for registered limits
+        # should remain 1. When cache is disabled, it should increase to 2
+        foo_limit = utils._get_limit(project_id, 'foo')
+        self.assertEqual(5, foo_limit)
+        count = 1 if cache else 2
+        self.assertEqual(count, fix.mock_conn.registered_limits.call_count)
+
+        # Add a project limit = 1
+        fix.projlimits[project_id] = {'foo': 1}
+
+        foo_limit = utils._get_limit(project_id, 'foo')
+
+        self.assertEqual(1, foo_limit)
+        # Project limits should have been queried 3 times total, once per
+        # _get_limit call
+        self.assertEqual(3, fix.mock_conn.limits.call_count)
+
+        # Fourth call should be cached, so call_count for project limits should
+        # remain 3. When cache is disabled, it should increase to 4
+        foo_limit = utils._get_limit(project_id, 'foo')
+        self.assertEqual(1, foo_limit)
+        count = 3 if cache else 4
+        self.assertEqual(count, fix.mock_conn.limits.call_count)
+
+    def test_get_limit_no_cache(self):
+        self.test_get_limit_cache(cache=False)

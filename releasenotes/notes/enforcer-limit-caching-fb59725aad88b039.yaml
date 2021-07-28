@@ -1,0 +1,7 @@
+---
+features:
+  - |
+    ``Enforcer`` objects now cache limits by default for the lifetime of the
+    object to provide improved performance when multiple calls of ``enforce()``
+    are needed. This behavior is controlled by the boolean ``cache`` keyword
+    argument to the ``__init__`` method.

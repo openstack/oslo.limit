@@ -31,7 +31,7 @@ class LimitFixture(fixtures.Fixture):
                            As in reality, only per-project overrides need be
                            provided here; any unmentioned projects or
                            resources will take the registered limit defaults.
-        :type reglimits: dict
+        :type projlimits: dict
         """
         self.reglimits = reglimits
         self.projlimits = projlimits
