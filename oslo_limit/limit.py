@@ -92,8 +92,8 @@ class Enforcer(object):
         From the deltas we extract the list of resource types that need to
         have limits enforced on them.
 
-        From keystone we fetch limits relating to this project_id and the
-        endpoint specified in the configuration.
+        From keystone we fetch limits relating to this project_id (if
+        not None) and the endpoint specified in the configuration.
 
         Using the usage_callback specified when creating the enforcer,
         we fetch the existing usage.
@@ -107,8 +107,12 @@ class Enforcer(object):
         a limit of zero, i.e. do not allow any use of a resource type
         that does not have a registered limit.
 
+        Note that if a project_id of None is provided, we just compare
+        against the registered limits (i.e. use this for
+        non-project-scoped limits)
+
         :param project_id: The project to check usage and enforce limits
-                           against.
+                           against (or None).
         :type project_id: string
         :param deltas: An dictionary containing resource names as keys and
                        requests resource quantities as positive integers.
@@ -117,9 +121,11 @@ class Enforcer(object):
         :type deltas: dictionary
 
         :raises exception.ClaimExceedsLimit: when over limits
+
         """
-        if not project_id or not isinstance(project_id, str):
-            msg = 'project_id must be a non-empty string.'
+        if project_id is not None and (
+                not project_id or not isinstance(project_id, str)):
+            msg = 'project_id must be a non-empty string or None.'
             raise ValueError(msg)
         if not isinstance(deltas, dict) or len(deltas) == 0:
             msg = 'deltas must be a non-empty dictionary.'
@@ -144,15 +150,17 @@ class Enforcer(object):
         This should *not* be used to conduct custom enforcement, but
         rather only for reporting.
 
-        :param project_id: The project for which to check usage and limits.
+        :param project_id: The project for which to check usage and limits,
+                           or None.
         :type project_id: string
         :param resources_to_check: A list of resource names to query.
         :type resources_to_check: list
         :returns: A dictionary of name:limit.ProjectUsage for the
                   requested names against the provided project.
         """
-        if not project_id or not isinstance(project_id, str):
-            msg = 'project_id must be a non-empty string.'
+        if project_id is not None and (
+                not project_id or not isinstance(project_id, str)):
+            msg = 'project_id must be a non-empty string or None.'
             raise ValueError(msg)
 
         msg = ('resources_to_check must be non-empty sequence of '
@@ -253,7 +261,7 @@ class _EnforcerUtils(object):
     def enforce_limits(project_id, limits, current_usage, deltas):
         """Check that proposed usage is not over given limits
 
-        :param project_id: project being checked
+        :param project_id: project being checked or None
         :param limits: list of (resource_name,limit) pairs
         :param current_usage: dict of resource name and current usage
         :param deltas: dict of resource name and proposed additional usage
@@ -283,7 +291,7 @@ class _EnforcerUtils(object):
         If a limit is not found, it will be considered to be zero
         (i.e. no quota)
 
-        :param project_id:
+        :param project_id: project being checked or None
         :param resource_names: list of resource_name strings
         :return: list of (resource_name,limit) pairs
         """
@@ -308,7 +316,8 @@ class _EnforcerUtils(object):
                 resource_name in self.plimit_cache[project_id]):
             return self.plimit_cache[project_id][resource_name].resource_limit
 
-        project_limit = self._get_project_limit(project_id, resource_name)
+        project_limit = (self._get_project_limit(project_id, resource_name)
+                         if project_id is not None else None)
 
         if self.should_cache and project_limit:
             self.plimit_cache[project_id][resource_name] = project_limit

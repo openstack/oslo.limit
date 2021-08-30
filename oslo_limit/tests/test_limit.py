@@ -181,9 +181,6 @@ class TestEnforcer(base.BaseTestCase):
         # Non-string project_id
         self.assertRaises(ValueError,
                           enforcer.calculate_usage,
-                          None, ['foo'])
-        self.assertRaises(ValueError,
-                          enforcer.calculate_usage,
                           123, ['foo'])
 
         # Zero-length resources_to_check
@@ -263,6 +260,9 @@ class TestFlatEnforcer(base.BaseTestCase):
         enforcer = limit._FlatEnforcer(mock_usage)
         self.assertRaises(exception.ProjectOverLimit, enforcer.enforce,
                           project_id, deltas)
+
+        self.assertRaises(exception.ProjectOverLimit, enforcer.enforce,
+                          None, deltas)
 
 
 class TestEnforcerUtils(base.BaseTestCase):
@@ -367,3 +367,35 @@ class TestEnforcerUtils(base.BaseTestCase):
 
     def test_get_limit_no_cache(self):
         self.test_get_limit_cache(cache=False)
+
+    def test_get_limit(self):
+        utils = limit._EnforcerUtils(cache=False)
+
+        mgpl = mock.MagicMock()
+        mgrl = mock.MagicMock()
+        with mock.patch.multiple(utils, _get_project_limit=mgpl,
+                                 _get_registered_limit=mgrl):
+            # With a project, we expect the project limit to be
+            # fetched. If present, we never check the registered limit.
+            utils._get_limit('project', 'foo')
+            mgrl.assert_not_called()
+            mgpl.assert_called_once_with('project', 'foo')
+
+            mgrl.reset_mock()
+            mgpl.reset_mock()
+
+            # With a project, we expect the project limit to be
+            # fetched. If absent, we check the registered limit.
+            mgpl.return_value = None
+            utils._get_limit('project', 'foo')
+            mgrl.assert_called_once_with('foo')
+            mgpl.assert_called_once_with('project', 'foo')
+
+            mgrl.reset_mock()
+            mgpl.reset_mock()
+
+            # With no project, we expect to get registered limit but
+            # not project limit
+            utils._get_limit(None, 'foo')
+            mgrl.assert_called_once_with('foo')
+            mgpl.assert_not_called()
