@@ -146,7 +146,10 @@ Another usage pattern is to check a limit and usage for a given
 project, outside the scope of enforcement. This may be useful in a
 reporting API to be able to expose to a user the limit and usage
 information that the enforcer would use to judge a resource
-consumption event.
+consumption event. Any limit passed to this API which is not
+registered in keystone will be considered to be zero, in keeping with
+the behavior of the enforcer assuming that "unregistered means no
+quota."
 
 .. note::
    This should ideally not be used to provide your own enforcement of

@@ -143,6 +143,38 @@ class TestEnforcer(base.BaseTestCase):
         self.assertEqual(expected, enforcer.calculate_usage(project_id,
                                                             ['a', 'b']))
 
+    @mock.patch.object(limit._EnforcerUtils, "_get_project_limit")
+    @mock.patch.object(limit._EnforcerUtils, "_get_registered_limit")
+    def test_calculate_and_enforce_some_missing(self, mock_get_reglimit,
+                                                mock_get_limit):
+        # Registered and project limits for a and b, c is unregistered
+        reg_limits = {'a': mock.MagicMock(default_limit=10),
+                      'b': mock.MagicMock(default_limit=10)}
+        prj_limits = {('bar', 'b'): mock.MagicMock(resource_limit=6)}
+        mock_get_reglimit.side_effect = lambda r: reg_limits.get(r)
+        mock_get_limit.side_effect = lambda p, r: prj_limits.get((p, r))
+
+        # Regardless, we have usage for all three
+        mock_usage = mock.MagicMock()
+        mock_usage.return_value = {'a': 5, 'b': 5, 'c': 5}
+
+        enforcer = limit.Enforcer(mock_usage)
+
+        # When we calculate usage, we should expect the default limit
+        # of zero for the unregistered limit
+        expected = {
+            'a': limit.ProjectUsage(10, 5),
+            'b': limit.ProjectUsage(6, 5),
+            'c': limit.ProjectUsage(0, 5),
+        }
+        self.assertEqual(expected,
+                         enforcer.calculate_usage('bar', ['a', 'b', 'c']))
+
+        # Make sure that if we enforce, we get the expected behavior
+        # of c being considered to be zero
+        self.assertRaises(exception.ProjectOverLimit,
+                          enforcer.enforce, 'bar', {'a': 1, 'b': 0, 'c': 1})
+
     def test_calculate_usage_bad_params(self):
         enforcer = limit.Enforcer(mock.MagicMock())
 
@@ -216,14 +248,17 @@ class TestFlatEnforcer(base.BaseTestCase):
         self.assertEqual(0, over_a.current_usage)
         self.assertEqual(2, over_a.delta)
 
-    @mock.patch.object(limit._EnforcerUtils, "get_project_limits")
-    def test_enforce_raises_on_missing_limit(self, mock_get_limits):
-        mock_usage = mock.MagicMock()
+    @mock.patch.object(limit._EnforcerUtils, "_get_project_limit")
+    @mock.patch.object(limit._EnforcerUtils, "_get_registered_limit")
+    def test_enforce_raises_on_missing_limit(self, mock_get_reglimit,
+                                             mock_get_limit):
+        def mock_usage(*a):
+            return {'a': 1, 'b': 1}
 
         project_id = uuid.uuid4().hex
         deltas = {"a": 0, "b": 0}
-        mock_get_limits.side_effect = exception.ProjectOverLimit(
-            project_id, [exception.OverLimitInfo("a", 0, 0, 0)])
+        mock_get_reglimit.return_value = None
+        mock_get_limit.return_value = None
 
         enforcer = limit._FlatEnforcer(mock_usage)
         self.assertRaises(exception.ProjectOverLimit, enforcer.enforce,
@@ -292,24 +327,8 @@ class TestEnforcerUtils(base.BaseTestCase):
         limits = utils.get_project_limits(project_id, ["a", "b"])
         self.assertEqual([('a', 1), ('b', 2)], limits)
 
-        e = self.assertRaises(exception.ProjectOverLimit,
-                              utils.get_project_limits,
-                              project_id, ["c", "d"])
-        expected = ("Project %s is over a limit for "
-                    "[Resource c is over limit of 0 due to current usage 0 "
-                    "and delta 0, "
-                    "Resource d is over limit of 0 due to current usage 0 "
-                    "and delta 0]")
-        self.assertEqual(expected % project_id, str(e))
-        self.assertEqual(project_id, e.project_id)
-        self.assertEqual(2, len(e.over_limit_info_list))
-        over_c = e.over_limit_info_list[0]
-        self.assertEqual("c", over_c.resource_name)
-        over_d = e.over_limit_info_list[1]
-        self.assertEqual("d", over_d.resource_name)
-        self.assertEqual(0, over_d.limit)
-        self.assertEqual(0, over_d.current_usage)
-        self.assertEqual(0, over_d.delta)
+        limits = utils.get_project_limits(project_id, ["c", "d"])
+        self.assertEqual([('c', 0), ('d', 0)], limits)
 
     def test_get_limit_cache(self, cache=True):
         # No project limit and registered limit = 5

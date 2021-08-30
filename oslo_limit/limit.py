@@ -280,29 +280,21 @@ class _EnforcerUtils(object):
     def get_project_limits(self, project_id, resource_names):
         """Get all the limits for given project a resource_name list
 
-        We will raise ClaimExceedsLimit if no limit is found to ensure that
-        all clients of this library react to this situation in the same way.
+        If a limit is not found, it will be considered to be zero
+        (i.e. no quota)
 
         :param project_id:
         :param resource_names: list of resource_name strings
         :return: list of (resource_name,limit) pairs
-
-        :raises exception.ClaimExceedsLimit: if no limit is found
         """
         # Using a list to preserver the resource_name order
         project_limits = []
-        missing_limits = []
         for resource_name in resource_names:
             try:
                 limit = self._get_limit(project_id, resource_name)
-                project_limits.append((resource_name, limit))
             except _LimitNotFound:
-                missing_limits.append(resource_name)
-
-        if len(missing_limits) > 0:
-            over_limit_list = [exception.OverLimitInfo(name, 0, 0, 0)
-                               for name in missing_limits]
-            raise exception.ProjectOverLimit(project_id, over_limit_list)
+                limit = 0
+            project_limits.append((resource_name, limit))
 
         return project_limits
 
