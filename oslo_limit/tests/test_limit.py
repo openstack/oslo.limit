@@ -198,12 +198,54 @@ class TestEnforcer(base.BaseTestCase):
                           enforcer.calculate_usage,
                           'project', ['a', 123, 'b'])
 
+    @mock.patch.object(limit._EnforcerUtils, "get_registered_limits")
+    def test_get_registered_limits(self, mock_get_limits):
+        mock_get_limits.return_value = [("a", 1), ("b", 0), ("c", 2)]
+
+        enforcer = limit.Enforcer(lambda: None)
+        limits = enforcer.get_registered_limits(["a", "b", "c"])
+
+        mock_get_limits.assert_called_once_with(["a", "b", "c"])
+        self.assertEqual(mock_get_limits.return_value, limits)
+
+    @mock.patch.object(limit._EnforcerUtils, "get_project_limits")
+    def test_get_project_limits(self, mock_get_limits):
+        project_id = uuid.uuid4().hex
+        mock_get_limits.return_value = [("a", 1), ("b", 0), ("c", 2)]
+
+        enforcer = limit.Enforcer(lambda: None)
+        limits = enforcer.get_project_limits(project_id, ["a", "b", "c"])
+
+        mock_get_limits.assert_called_once_with(project_id, ["a", "b", "c"])
+        self.assertEqual(mock_get_limits.return_value, limits)
+
 
 class TestFlatEnforcer(base.BaseTestCase):
     def setUp(self):
         super(TestFlatEnforcer, self).setUp()
         self.mock_conn = mock.MagicMock()
         limit._SDK_CONNECTION = self.mock_conn
+
+    @mock.patch.object(limit._EnforcerUtils, "get_registered_limits")
+    def test_get_registered_limits(self, mock_get_limits):
+        mock_get_limits.return_value = [("a", 1), ("b", 0), ("c", 2)]
+
+        enforcer = limit._FlatEnforcer(lambda: None)
+        limits = enforcer.get_registered_limits(["a", "b", "c"])
+
+        mock_get_limits.assert_called_once_with(["a", "b", "c"])
+        self.assertEqual(mock_get_limits.return_value, limits)
+
+    @mock.patch.object(limit._EnforcerUtils, "get_project_limits")
+    def test_get_project_limits(self, mock_get_limits):
+        project_id = uuid.uuid4().hex
+        mock_get_limits.return_value = [("a", 1), ("b", 0), ("c", 2)]
+
+        enforcer = limit._FlatEnforcer(lambda: None)
+        limits = enforcer.get_project_limits(project_id, ["a", "b", "c"])
+
+        mock_get_limits.assert_called_once_with(project_id, ["a", "b", "c"])
+        self.assertEqual(mock_get_limits.return_value, limits)
 
     @mock.patch.object(limit._EnforcerUtils, "get_project_limits")
     def test_enforce(self, mock_get_limits):
@@ -297,6 +339,33 @@ class TestEnforcerUtils(base.BaseTestCase):
         reg_limit = utils._get_registered_limit("foo")
 
         self.assertEqual(foo, reg_limit)
+
+    def test_get_registered_limits(self):
+        fake_endpoint = endpoint.Endpoint()
+        fake_endpoint.service_id = "service_id"
+        fake_endpoint.region_id = "region_id"
+        self.mock_conn.get_endpoint.return_value = fake_endpoint
+
+        # a and c have limits, b doesn't have one
+        empty_iterator = iter([])
+
+        a = registered_limit.RegisteredLimit()
+        a.resource_name = "a"
+        a.default_limit = 1
+        a_iterator = iter([a])
+
+        c = registered_limit.RegisteredLimit()
+        c.resource_name = "c"
+        c.default_limit = 2
+        c_iterator = iter([c])
+
+        self.mock_conn.registered_limits.side_effect = [a_iterator,
+                                                        empty_iterator,
+                                                        c_iterator]
+
+        utils = limit._EnforcerUtils()
+        limits = utils.get_registered_limits(["a", "b", "c"])
+        self.assertEqual([('a', 1), ('b', 0), ('c', 2)], limits)
 
     def test_get_project_limits(self):
         fake_endpoint = endpoint.Endpoint()

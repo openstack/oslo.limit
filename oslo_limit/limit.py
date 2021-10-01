@@ -181,6 +181,13 @@ class Enforcer(object):
         return {resource: ProjectUsage(limit, usage[resource])
                 for resource, limit in limits}
 
+    def get_registered_limits(self, resources_to_check):
+        return self.model.get_registered_limits(resources_to_check)
+
+    def get_project_limits(self, project_id, resources_to_check):
+        return self.model.get_project_limits(project_id,
+                                             resources_to_check)
+
 
 class _FlatEnforcer(object):
 
@@ -189,6 +196,9 @@ class _FlatEnforcer(object):
     def __init__(self, usage_callback, cache=True):
         self._usage_callback = usage_callback
         self._utils = _EnforcerUtils(cache=cache)
+
+    def get_registered_limits(self, resources_to_check):
+        return self._utils.get_registered_limits(resources_to_check)
 
     def get_project_limits(self, project_id, resources_to_check):
         return self._utils.get_project_limits(project_id, resources_to_check)
@@ -216,6 +226,9 @@ class _StrictTwoLevelEnforcer(object):
 
     def __init__(self, usage_callback, cache=True):
         self._usage_callback = usage_callback
+
+    def get_registered_limits(self, resources_to_check):
+        raise NotImplementedError()
 
     def get_project_limits(self, project_id, resources_to_check):
         raise NotImplementedError()
@@ -284,6 +297,24 @@ class _EnforcerUtils(object):
         if len(over_limit_list) > 0:
             LOG.debug("hit limit for project: %s", over_limit_list)
             raise exception.ProjectOverLimit(project_id, over_limit_list)
+
+    def get_registered_limits(self, resource_names):
+        """Get all the default limits for a given resource name list
+
+        :param resource_names: list of resource_name strings
+        :return: list of (resource_name, limit) pairs
+        """
+        # Using a list to preserve the resource_name order
+        registered_limits = []
+        for resource_name in resource_names:
+            reg_limit = self._get_registered_limit(resource_name)
+            if reg_limit:
+                limit = reg_limit.default_limit
+            else:
+                limit = 0
+            registered_limits.append((resource_name, limit))
+
+        return registered_limits
 
     def get_project_limits(self, project_id, resource_names):
         """Get all the limits for given project a resource_name list
