@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from collections import defaultdict
 from collections import namedtuple
 
 from keystoneauth1 import exceptions as ksa_exceptions
@@ -55,31 +56,34 @@ def _get_keystone_connection():
 
 class Enforcer(object):
 
-    def __init__(self, usage_callback):
+    def __init__(self, usage_callback, cache=True):
         """An object for checking usage against resource limits and requests.
 
         :param usage_callback: A callable function that accepts a project_id
                                string as a parameter and calculates the current
                                usage of a resource.
         :type usage_callback: callable function
+        :param cache: Whether to cache resource limits for the lifetime of this
+                      enforcer. Defaults to True.
+        :type cache: boolean
         """
         if not callable(usage_callback):
             msg = 'usage_callback must be a callable function.'
             raise ValueError(msg)
 
         self.connection = _get_keystone_connection()
-        self.model = self._get_model_impl(usage_callback)
+        self.model = self._get_model_impl(usage_callback, cache=cache)
 
     def _get_enforcement_model(self):
         """Query keystone for the configured enforcement model."""
         return self.connection.get('/limits/model').json()['model']['name']
 
-    def _get_model_impl(self, usage_callback):
+    def _get_model_impl(self, usage_callback, cache=True):
         """get the enforcement model based on configured model in keystone."""
         model = self._get_enforcement_model()
         for impl in _MODELS:
             if model == impl.name:
-                return impl(usage_callback)
+                return impl(usage_callback, cache=cache)
         raise ValueError("enforcement model %s is not supported" % model)
 
     def enforce(self, project_id, deltas):
@@ -167,16 +171,16 @@ class Enforcer(object):
         usage = self.model.get_project_usage(project_id, resources_to_check)
 
         return {resource: ProjectUsage(limit, usage[resource])
-                for resource, limit in dict(limits).items()}
+                for resource, limit in limits}
 
 
 class _FlatEnforcer(object):
 
     name = 'flat'
 
-    def __init__(self, usage_callback):
+    def __init__(self, usage_callback, cache=True):
         self._usage_callback = usage_callback
-        self._utils = _EnforcerUtils()
+        self._utils = _EnforcerUtils(cache=cache)
 
     def get_project_limits(self, project_id, resources_to_check):
         return self._utils.get_project_limits(project_id, resources_to_check)
@@ -202,7 +206,7 @@ class _StrictTwoLevelEnforcer(object):
 
     name = 'strict-two-level'
 
-    def __init__(self, usage_callback):
+    def __init__(self, usage_callback, cache=True):
         self._usage_callback = usage_callback
 
     def get_project_limits(self, project_id, resources_to_check):
@@ -229,8 +233,13 @@ class _LimitNotFound(Exception):
 class _EnforcerUtils(object):
     """Logic common used by multiple enforcers"""
 
-    def __init__(self):
+    def __init__(self, cache=True):
         self.connection = _get_keystone_connection()
+        self.should_cache = cache
+        # {project_id: {resource_name: project_limit}}
+        self.plimit_cache = defaultdict(dict)
+        # {resource_name: registered_limit}
+        self.rlimit_cache = {}
 
         # get and cache endpoint info
         endpoint_id = CONF.oslo_limit.endpoint_id
@@ -298,12 +307,32 @@ class _EnforcerUtils(object):
         return project_limits
 
     def _get_limit(self, project_id, resource_name):
-        # TODO(johngarbutt): might need to cache here
+        # If we are configured to cache limits, look in the cache first and use
+        # the cached value if there is one. Else, retrieve the limit and add it
+        # to the cache. Do this for both project limits and registered limits.
+
+        # Look for a project limit first.
+        if (project_id in self.plimit_cache and
+                resource_name in self.plimit_cache[project_id]):
+            return self.plimit_cache[project_id][resource_name].resource_limit
+
         project_limit = self._get_project_limit(project_id, resource_name)
+
+        if self.should_cache and project_limit:
+            self.plimit_cache[project_id][resource_name] = project_limit
+
         if project_limit:
             return project_limit.resource_limit
 
+        # If there is no project limit, look for a registered limit.
+        if resource_name in self.rlimit_cache:
+            return self.rlimit_cache[resource_name].default_limit
+
         registered_limit = self._get_registered_limit(resource_name)
+
+        if self.should_cache and registered_limit:
+            self.rlimit_cache[resource_name] = registered_limit
+
         if registered_limit:
             return registered_limit.default_limit
 
