@@ -44,6 +44,9 @@ def list_opts():
     return [(_option_group,
              copy.deepcopy(_options) +
              loading.get_session_conf_options() +
+             loading.get_auth_plugin_conf_options('password'),
+             loading.get_auth_plugin_conf_options('v2password'),
+             loading.get_auth_plugin_conf_options('v3password'),
              loading.get_adapter_conf_options(include_deprecated=False)
              )]
 
