@@ -399,6 +399,48 @@ class TestEnforcerUtils(base.BaseTestCase):
         limits = utils.get_project_limits(project_id, ["c", "d"])
         self.assertEqual([('c', 0), ('d', 0)], limits)
 
+    def test__get_project_limit_cache(self, cache=True):
+        # Registered limit = 5 and project limit = 3
+        project_id = uuid.uuid4().hex
+        fix = self.useFixture(
+            fixture.LimitFixture({'foo': 5}, {project_id: {'foo': 3}}))
+
+        utils = limit._EnforcerUtils(cache=cache)
+        foo_limit = utils._get_project_limit(project_id, 'foo')
+
+        self.assertEqual(3, foo_limit.resource_limit)
+        self.assertEqual(1, fix.mock_conn.limits.call_count)
+
+        # Second call should be cached, so call_count for project limits should
+        # remain 1. When cache is disabled, it should increase to 2
+        foo_limit = utils._get_project_limit(project_id, 'foo')
+        count = 1 if cache else 2
+        self.assertEqual(count, fix.mock_conn.limits.call_count)
+
+    def test__get_project_limit_cache_no_cache(self):
+        self.test__get_project_limit_cache(cache=False)
+
+    def test__get_registered_limit_cache(self, cache=True):
+        # Registered limit = 5 and project limit = 3
+        project_id = uuid.uuid4().hex
+        fix = self.useFixture(
+            fixture.LimitFixture({'foo': 5}, {project_id: {'foo': 3}}))
+
+        utils = limit._EnforcerUtils(cache=cache)
+        foo_limit = utils._get_registered_limit('foo')
+
+        self.assertEqual(5, foo_limit.default_limit)
+        self.assertEqual(1, fix.mock_conn.registered_limits.call_count)
+
+        # Second call should be cached, so call_count for project limits should
+        # remain 1. When cache is disabled, it should increase to 2
+        foo_limit = utils._get_registered_limit('foo')
+        count = 1 if cache else 2
+        self.assertEqual(count, fix.mock_conn.registered_limits.call_count)
+
+    def test__get_registered_limit_cache_no_cache(self):
+        self.test__get_registered_limit_cache(cache=False)
+
     def test_get_limit_cache(self, cache=True):
         # No project limit and registered limit = 5
         fix = self.useFixture(fixture.LimitFixture({'foo': 5}, {}))
