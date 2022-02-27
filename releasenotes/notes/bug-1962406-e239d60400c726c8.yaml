@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    `bug 1962406` <https://bugs.launchpad.net/oslo.limit/+bug/1962406>`_:
+    Fixed the wrong format of options data, which was causing failure with
+    ``oslo-config-generator`` command if the ``oslo.limit`` entry point is
+    included.
