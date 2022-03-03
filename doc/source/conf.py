@@ -21,7 +21,8 @@
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     'openstackdocstheme',
-    'sphinxcontrib.apidoc'
+    'sphinxcontrib.apidoc',
+    'oslo_config.sphinxext',
 ]
 
 apidoc_module_dir = '../../oslo_limit'
