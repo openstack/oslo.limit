@@ -343,27 +343,14 @@ class _EnforcerUtils(object):
         # to the cache. Do this for both project limits and registered limits.
 
         # Look for a project limit first.
-        if (project_id in self.plimit_cache and
-                resource_name in self.plimit_cache[project_id]):
-            return self.plimit_cache[project_id][resource_name].resource_limit
-
         project_limit = (self._get_project_limit(project_id, resource_name)
                          if project_id is not None else None)
-
-        if self.should_cache and project_limit:
-            self.plimit_cache[project_id][resource_name] = project_limit
 
         if project_limit:
             return project_limit.resource_limit
 
         # If there is no project limit, look for a registered limit.
-        if resource_name in self.rlimit_cache:
-            return self.rlimit_cache[resource_name].default_limit
-
         registered_limit = self._get_registered_limit(resource_name)
-
-        if self.should_cache and registered_limit:
-            self.rlimit_cache[resource_name] = registered_limit
 
         if registered_limit:
             return registered_limit.default_limit
@@ -376,22 +363,45 @@ class _EnforcerUtils(object):
         raise _LimitNotFound(resource_name)
 
     def _get_project_limit(self, project_id, resource_name):
-        limit = self.connection.limits(
+        # Look in the cache first.
+        if (project_id in self.plimit_cache and
+                resource_name in self.plimit_cache[project_id]):
+            return self.plimit_cache[project_id][resource_name]
+
+        # Get the limit from keystone.
+        limits = self.connection.limits(
             service_id=self._service_id,
             region_id=self._region_id,
             resource_name=resource_name,
             project_id=project_id)
         try:
-            return next(limit)
+            limit = next(limits)
         except StopIteration:
             return None
 
+        # Cache the limit if configured.
+        if self.should_cache and limit:
+            self.plimit_cache[project_id][resource_name] = limit
+
+        return limit
+
     def _get_registered_limit(self, resource_name):
-        reg_limit = self.connection.registered_limits(
+        # Look in the cache first.
+        if resource_name in self.rlimit_cache:
+            return self.rlimit_cache[resource_name]
+
+        # Get the limit from keystone.
+        reg_limits = self.connection.registered_limits(
             service_id=self._service_id,
             region_id=self._region_id,
             resource_name=resource_name)
         try:
-            return next(reg_limit)
+            reg_limit = next(reg_limits)
         except StopIteration:
             return None
+
+        # Cache the limit if configured.
+        if self.should_cache and reg_limit:
+            self.rlimit_cache[resource_name] = reg_limit
+
+        return reg_limit
