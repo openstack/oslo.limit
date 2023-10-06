@@ -264,6 +264,8 @@ class _EnforcerUtils(object):
 
         # get and cache endpoint info
         endpoint_id = CONF.oslo_limit.endpoint_id
+        if not endpoint_id:
+            raise ValueError("endpoint_id is not configured")
         self._endpoint = self.connection.get_endpoint(endpoint_id)
         if not self._endpoint:
             raise ValueError("can't find endpoint for %s" % endpoint_id)

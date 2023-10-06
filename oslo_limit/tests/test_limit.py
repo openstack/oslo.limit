@@ -46,6 +46,10 @@ class TestEnforcer(base.BaseTestCase):
             group='oslo_limit',
             auth_type='password'
         )
+        self.config_fixture.config(
+            group='oslo_limit',
+            endpoint_id='ENDPOINT_ID'
+        )
         opts.register_opts(CONF)
         self.config_fixture.config(
             group='oslo_limit',
@@ -223,6 +227,12 @@ class TestEnforcer(base.BaseTestCase):
 class TestFlatEnforcer(base.BaseTestCase):
     def setUp(self):
         super(TestFlatEnforcer, self).setUp()
+        self.config_fixture = self.useFixture(config_fixture.Config(CONF))
+        self.config_fixture.config(
+            group='oslo_limit',
+            endpoint_id='ENDPOINT_ID'
+        )
+        opts.register_opts(CONF)
         self.mock_conn = mock.MagicMock()
         limit._SDK_CONNECTION = self.mock_conn
 
@@ -259,7 +269,7 @@ class TestFlatEnforcer(base.BaseTestCase):
         enforcer = limit._FlatEnforcer(mock_usage)
         enforcer.enforce(project_id, deltas)
 
-        self.mock_conn.get_endpoint.assert_called_once_with(None)
+        self.mock_conn.get_endpoint.assert_called_once_with('ENDPOINT_ID')
         mock_get_limits.assert_called_once_with(project_id, ["a", "b"])
         mock_usage.assert_called_once_with(project_id, ["a", "b"])
 
@@ -310,6 +320,12 @@ class TestFlatEnforcer(base.BaseTestCase):
 class TestEnforcerUtils(base.BaseTestCase):
     def setUp(self):
         super(TestEnforcerUtils, self).setUp()
+        self.config_fixture = self.useFixture(config_fixture.Config(CONF))
+        self.config_fixture.config(
+            group='oslo_limit',
+            endpoint_id='ENDPOINT_ID'
+        )
+        opts.register_opts(CONF)
         self.mock_conn = mock.MagicMock()
         limit._SDK_CONNECTION = self.mock_conn
 
@@ -320,7 +336,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         utils = limit._EnforcerUtils()
 
         self.assertEqual(fake_endpoint, utils._endpoint)
-        self.mock_conn.get_endpoint.assert_called_once_with(None)
+        self.mock_conn.get_endpoint.assert_called_once_with('ENDPOINT_ID')
 
     def test_get_registered_limit_empty(self):
         self.mock_conn.registered_limits.return_value = iter([])
