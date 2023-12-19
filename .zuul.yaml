@@ -27,6 +27,7 @@
 - project:
     templates:
       - check-requirements
+      - openstack-cover-jobs
       - lib-forward-testing-python3
       - openstack-python3-jobs
       - periodic-stable-jobs
