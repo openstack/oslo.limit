@@ -18,6 +18,7 @@ from collections import namedtuple
 from keystoneauth1 import exceptions as ksa_exceptions
 from keystoneauth1 import loading
 from openstack import connection
+from openstack import exceptions as os_exceptions
 from oslo_config import cfg
 from oslo_log import log
 
@@ -262,15 +263,68 @@ class _EnforcerUtils(object):
         # {resource_name: registered_limit}
         self.rlimit_cache = {}
 
-        # get and cache endpoint info
-        endpoint_id = CONF.oslo_limit.endpoint_id
-        if not endpoint_id:
-            raise ValueError("endpoint_id is not configured")
-        self._endpoint = self.connection.get_endpoint(endpoint_id)
-        if not self._endpoint:
-            raise ValueError("can't find endpoint for %s" % endpoint_id)
+        self._endpoint = self._get_endpoint()
         self._service_id = self._endpoint.service_id
         self._region_id = self._endpoint.region_id
+
+    def _get_endpoint(self):
+        endpoint = self._get_endpoint_by_id()
+        if endpoint is not None:
+            return endpoint
+
+        return self._get_endpoint_by_service_lookup()
+
+    def _get_endpoint_by_id(self):
+        endpoint_id = CONF.oslo_limit.endpoint_id
+        if endpoint_id is None:
+            return None
+
+        try:
+            endpoint = self.connection.get_endpoint(endpoint_id)
+        except os_exceptions.ResourceNotFound:
+            raise ValueError("Can't find endpoint for %s" % endpoint_id)
+        return endpoint
+
+    def _get_endpoint_by_service_lookup(self):
+        service_type = CONF.oslo_limit.endpoint_service_type
+        service_name = CONF.oslo_limit.endpoint_service_name
+        if not service_type and not service_name:
+            raise ValueError(
+                "Either service_type or service_name should be set")
+
+        try:
+            services = self.connection.services(type=service_type,
+                                                name=service_name)
+            if len(services) > 1:
+                raise ValueError("Multiple services found")
+            service_id = services[0].id
+        except os_exceptions.ResourceNotFound:
+            raise ValueError("Service not found")
+
+        if CONF.oslo_limit.endpoint_region_name is not None:
+            try:
+                regions = self.connection.regions(
+                    name=CONF.oslo_limit.endpoint_region_name)
+                if len(regions) > 1:
+                    raise ValueError("Multiple regions found")
+                region_id = regions[0].id
+            except os_exceptions.ResourceNotFound:
+                raise ValueError("Region not found")
+        else:
+            region_id = None
+
+        try:
+            endpoints = self.connection.endpoints(
+                service_id=service_id, region_id=region_id,
+                interface=CONF.oslo_limit.endpoint_interface,
+            )
+        except os_exceptions.ResourceNotFound:
+            raise ValueError("Endpoint not found")
+
+        if len(endpoints) > 1:
+            raise ValueError("Multiple endpoints found")
+
+        return endpoints[0]
 
     @staticmethod
     def enforce_limits(project_id, limits, current_usage, deltas):

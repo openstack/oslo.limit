@@ -21,9 +21,12 @@ Tests for `limit` module.
 from unittest import mock
 import uuid
 
+from openstack import exceptions as os_exceptions
 from openstack.identity.v3 import endpoint
 from openstack.identity.v3 import limit as klimit
+from openstack.identity.v3 import region
 from openstack.identity.v3 import registered_limit
+from openstack.identity.v3 import service
 from oslo_config import cfg
 from oslo_config import fixture as config_fixture
 from oslotest import base
@@ -337,6 +340,244 @@ class TestEnforcerUtils(base.BaseTestCase):
 
         self.assertEqual(fake_endpoint, utils._endpoint)
         self.mock_conn.get_endpoint.assert_called_once_with('ENDPOINT_ID')
+        self.mock_conn.services.assert_not_called()
+        self.mock_conn.endpoints.assert_not_called()
+
+    def test_get_endpoint_no_id(self):
+        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
+        self.mock_conn.get_endpoint.side_effect = \
+            os_exceptions.ResourceNotFound
+
+        self.assertRaises(
+            ValueError,
+            limit._EnforcerUtils
+        )
+        self.mock_conn.get_endpoint.assert_not_called()
+        self.mock_conn.services.assert_not_called()
+        self.mock_conn.endpoints.assert_not_called()
+
+    def test_get_endpoint_missing(self):
+        self.mock_conn.get_endpoint.side_effect = \
+            os_exceptions.ResourceNotFound
+
+        self.assertRaises(
+            ValueError,
+            limit._EnforcerUtils
+        )
+        self.mock_conn.get_endpoint.assert_called_once_with('ENDPOINT_ID')
+        self.mock_conn.services.assert_not_called()
+        self.mock_conn.endpoints.assert_not_called()
+
+    def test_get_endpoint_lookup_without_service_opts(self):
+        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
+
+        self.assertRaises(
+            ValueError,
+            limit._EnforcerUtils
+        )
+
+        self.mock_conn.get_endpoint.assert_not_called()
+        self.mock_conn.services.assert_not_called()
+        self.mock_conn.endpoints.assert_not_called()
+
+    def test_get_endpoint_lookup(self):
+        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_type='SERVICE_TYPE'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_name='SERVICE_NAME'
+        )
+        fake_service = service.Service(id='SERVICE_ID')
+        self.mock_conn.services.return_value = [fake_service]
+        fake_endpoint = endpoint.Endpoint()
+        self.mock_conn.endpoints.return_value = [fake_endpoint]
+
+        utils = limit._EnforcerUtils()
+
+        self.assertEqual(fake_endpoint, utils._endpoint)
+        self.mock_conn.get_endpoint.assert_not_called()
+        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
+                                                        name='SERVICE_NAME')
+        self.mock_conn.endpoints.assert_called_once_with(
+            service_id='SERVICE_ID', region_id=None, interface='publicURL')
+
+    def test_get_endpoint_lookup_multiple_endpoints(self):
+        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_type='SERVICE_TYPE'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_name='SERVICE_NAME'
+        )
+        fake_service = service.Service(id='SERVICE_ID')
+        self.mock_conn.services.return_value = [fake_service]
+        self.mock_conn.endpoints.return_value = [
+            endpoint.Endpoint(), endpoint.Endpoint()
+        ]
+
+        self.assertRaises(
+            ValueError,
+            limit._EnforcerUtils
+        )
+
+        self.mock_conn.get_endpoint.assert_not_called()
+        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
+                                                        name='SERVICE_NAME')
+        self.mock_conn.endpoints.assert_called_once_with(
+            service_id='SERVICE_ID', region_id=None, interface='publicURL')
+
+    def test_get_endpoint_lookup_endpoint_not_found(self):
+        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_type='SERVICE_TYPE'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_name='SERVICE_NAME'
+        )
+        fake_service = service.Service(id='SERVICE_ID')
+        self.mock_conn.services.return_value = [fake_service]
+        self.mock_conn.endpoints.side_effect = os_exceptions.ResourceNotFound
+
+        self.assertRaises(
+            ValueError,
+            limit._EnforcerUtils
+        )
+
+        self.mock_conn.get_endpoint.assert_not_called()
+        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
+                                                        name='SERVICE_NAME')
+        self.mock_conn.endpoints.assert_called_once_with(
+            service_id='SERVICE_ID', region_id=None, interface='publicURL')
+
+    def test_get_endpoint_lookup_multiple_service(self):
+        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_type='SERVICE_TYPE'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_name='SERVICE_NAME'
+        )
+        self.mock_conn.services.side_effect = [
+            service.Service(id='SERVICE_ID1'),
+            service.Service(id='SERVICE_ID2')
+        ]
+
+        self.assertRaises(
+            ValueError,
+            limit._EnforcerUtils
+        )
+
+        self.mock_conn.get_endpoint.assert_not_called()
+        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
+                                                        name='SERVICE_NAME')
+        self.mock_conn.endpoints.assert_not_called()
+
+    def test_get_endpoint_lookup_service_not_found(self):
+        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_type='SERVICE_TYPE'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_name='SERVICE_NAME'
+        )
+        self.mock_conn.services.side_effect = os_exceptions.ResourceNotFound
+
+        self.assertRaises(
+            ValueError,
+            limit._EnforcerUtils
+        )
+
+        self.mock_conn.get_endpoint.assert_not_called()
+        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
+                                                        name='SERVICE_NAME')
+        self.mock_conn.endpoints.assert_not_called()
+
+    def test_get_endpoint_lookup_with_region(self):
+        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_type='SERVICE_TYPE'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_name='SERVICE_NAME'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_region_name='regionOne'
+        )
+        fake_service = service.Service(id='SERVICE_ID')
+        self.mock_conn.services.return_value = [fake_service]
+        fake_endpoint = endpoint.Endpoint()
+        self.mock_conn.endpoints.return_value = [fake_endpoint]
+        fake_region = region.Region(id='REGION_ID')
+        self.mock_conn.regions.return_value = [fake_region]
+
+        utils = limit._EnforcerUtils()
+
+        self.assertEqual(fake_endpoint, utils._endpoint)
+        self.mock_conn.get_endpoint.assert_not_called()
+        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
+                                                        name='SERVICE_NAME')
+        self.mock_conn.regions.assert_called_once_with(name='regionOne')
+        self.mock_conn.endpoints.assert_called_once_with(
+            service_id='SERVICE_ID', region_id='REGION_ID',
+            interface='publicURL')
+
+    def test_get_endpoint_lookup_with_region_not_found(self):
+        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_type='SERVICE_TYPE'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_name='SERVICE_NAME'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_region_name='regionOne'
+        )
+        fake_service = service.Service(id='SERVICE_ID')
+        self.mock_conn.services.return_value = [fake_service]
+        fake_endpoint = endpoint.Endpoint()
+        self.mock_conn.endpoints.return_value = [fake_endpoint]
+        self.mock_conn.regions.side_effect = os_exceptions.ResourceNotFound
+
+        self.assertRaises(
+            ValueError,
+            limit._EnforcerUtils
+        )
+
+        self.mock_conn.get_endpoint.assert_not_called()
+        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
+                                                        name='SERVICE_NAME')
+        self.mock_conn.regions.assert_called_once_with(name='regionOne')
+        self.mock_conn.endpoints.assert_not_called()
+
+    def test_get_endpoint_lookup_with_mutliple_regions(self):
+        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_type='SERVICE_TYPE'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_service_name='SERVICE_NAME'
+        )
+        self.config_fixture.config(
+            group='oslo_limit', endpoint_region_name='regionOne'
+        )
+        fake_service = service.Service(id='SERVICE_ID')
+        self.mock_conn.services.return_value = [fake_service]
+        fake_endpoint = endpoint.Endpoint()
+        self.mock_conn.endpoints.return_value = [fake_endpoint]
+        self.mock_conn.regions.return_value = [
+            region.Region(id='REGION_ID1'), region.Region(id='REGION_ID2')]
+
+        self.assertRaises(
+            ValueError,
+            limit._EnforcerUtils
+        )
+
+        self.mock_conn.get_endpoint.assert_not_called()
+        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
+                                                        name='SERVICE_NAME')
+        self.mock_conn.regions.assert_called_once_with(name='regionOne')
+        self.mock_conn.endpoints.assert_not_called()
 
     def test_get_registered_limit_empty(self):
         self.mock_conn.registered_limits.return_value = iter([])
@@ -357,9 +598,8 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.assertEqual(foo, reg_limit)
 
     def test_get_registered_limits(self):
-        fake_endpoint = endpoint.Endpoint()
-        fake_endpoint.service_id = "service_id"
-        fake_endpoint.region_id = "region_id"
+        fake_endpoint = endpoint.Endpoint(service_id='service_id',
+                                          region_id='region_id')
         self.mock_conn.get_endpoint.return_value = fake_endpoint
 
         # a and c have limits, b doesn't have one
@@ -384,9 +624,8 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.assertEqual([('a', 1), ('b', 0), ('c', 2)], limits)
 
     def test_get_project_limits(self):
-        fake_endpoint = endpoint.Endpoint()
-        fake_endpoint.service_id = "service_id"
-        fake_endpoint.region_id = "region_id"
+        fake_endpoint = endpoint.Endpoint(service_id='service_id',
+                                          region_id='region_id')
         self.mock_conn.get_endpoint.return_value = fake_endpoint
         project_id = uuid.uuid4().hex
 
