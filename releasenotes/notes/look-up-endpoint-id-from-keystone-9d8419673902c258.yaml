@@ -1,0 +1,11 @@
+---
+features:
+  - |
+    The following options have been added to the ``[oslo_limit]`` section.
+    When these options are set instead of the ``endpoint_id`` option, endpoint
+    id is looked up from keystone API.
+
+    - ``endpoint_service_name``
+    - ``endpoint_service_type``
+    - ``endpoint_region_name``
+    - ``endpoint_interface``

@@ -24,12 +24,25 @@ __all__ = [
 
 CONF = cfg.CONF
 
-endpoint_id = cfg.StrOpt(
-    'endpoint_id',
-    help=_("The service's endpoint id which is registered in Keystone."))
-
 _options = [
-    endpoint_id,
+    cfg.StrOpt(
+        'endpoint_id',
+        help=_("The service's endpoint id which is registered in Keystone.")),
+    cfg.StrOpt(
+        'endpoint_service_name',
+        help=_("Service name for endpoint discovery")),
+    cfg.StrOpt(
+        'endpoint_service_type',
+        help=_("Service type for endpoint discovery")),
+    cfg.StrOpt(
+        'endpoint_region_name',
+        help=_("Region to which the endpoint belongs")),
+    cfg.StrOpt(
+        'endpoint_interface',
+        default='publicURL',
+        choices=['public', 'publicURL', 'internal', 'internalURL',
+                 'admin', 'adminURL'],
+        help=_("The interface for endpoint discovery")),
 ]
 
 _option_group = 'oslo_limit'
