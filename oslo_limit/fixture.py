@@ -37,7 +37,7 @@ class LimitFixture(fixtures.Fixture):
         self.projlimits = projlimits
 
     def setUp(self):
-        super(LimitFixture, self).setUp()
+        super().setUp()
 
         # We mock our own cached connection to Keystone
         self.mock_conn = mock.MagicMock()

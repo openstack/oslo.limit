@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -39,7 +37,7 @@ CONF = cfg.CONF
 class TestEnforcer(base.BaseTestCase):
 
     def setUp(self):
-        super(TestEnforcer, self).setUp()
+        super().setUp()
         self.deltas = dict()
         self.config_fixture = self.useFixture(config_fixture.Config(CONF))
         self.config_fixture.config(
@@ -226,7 +224,7 @@ class TestEnforcer(base.BaseTestCase):
 
 class TestFlatEnforcer(base.BaseTestCase):
     def setUp(self):
-        super(TestFlatEnforcer, self).setUp()
+        super().setUp()
         self.config_fixture = self.useFixture(config_fixture.Config(CONF))
         self.config_fixture.config(
             group='oslo_limit',
@@ -319,7 +317,7 @@ class TestFlatEnforcer(base.BaseTestCase):
 
 class TestEnforcerUtils(base.BaseTestCase):
     def setUp(self):
-        super(TestEnforcerUtils, self).setUp()
+        super().setUp()
         self.config_fixture = self.useFixture(config_fixture.Config(CONF))
         self.config_fixture.config(
             group='oslo_limit',
