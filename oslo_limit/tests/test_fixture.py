@@ -26,7 +26,7 @@ CONF = cfg.CONF
 
 class TestFixture(base.BaseTestCase):
     def setUp(self):
-        super(TestFixture, self).setUp()
+        super().setUp()
 
         self.config_fixture = self.useFixture(config_fixture.Config(CONF))
         self.config_fixture.config(

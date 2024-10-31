@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -35,10 +33,10 @@ class ProjectOverLimit(Exception):
         msg = _("Project %(project_id)s is over a limit for "
                 "%(limits)s") % {'project_id': project_id,
                                  'limits': over_limit_info_list}
-        super(ProjectOverLimit, self).__init__(msg)
+        super().__init__(msg)
 
 
-class OverLimitInfo(object):
+class OverLimitInfo:
     def __init__(self, resource_name, limit, current_usage, delta):
         self.resource_name = resource_name
         self.limit = int(limit)
@@ -60,4 +58,4 @@ class SessionInitError(Exception):
         msg = _(
             "Can't initialise OpenStackSDK session: %(reason)s."
         ) % {'reason': reason}
-        super(SessionInitError, self).__init__(msg)
+        super().__init__(msg)

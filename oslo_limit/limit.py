@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -55,7 +53,7 @@ def _get_keystone_connection():
     return _SDK_CONNECTION
 
 
-class Enforcer(object):
+class Enforcer:
 
     def __init__(self, usage_callback, cache=True):
         """An object for checking usage against resource limits and requests.
@@ -190,7 +188,7 @@ class Enforcer(object):
                                              resources_to_check)
 
 
-class _FlatEnforcer(object):
+class _FlatEnforcer:
 
     name = 'flat'
 
@@ -221,7 +219,7 @@ class _FlatEnforcer(object):
                                    current_usage, deltas)
 
 
-class _StrictTwoLevelEnforcer(object):
+class _StrictTwoLevelEnforcer:
 
     name = 'strict-two-level'
 
@@ -246,13 +244,13 @@ _MODELS = [_FlatEnforcer, _StrictTwoLevelEnforcer]
 
 class _LimitNotFound(Exception):
     def __init__(self, resource):
-        msg = "Can't find the limit for resource %(resource)s" % {
-            'resource': resource}
+        msg = "Can't find the limit for resource {resource}".format(
+            resource=resource)
         self.resource = resource
-        super(_LimitNotFound, self).__init__(msg)
+        super().__init__(msg)
 
 
-class _EnforcerUtils(object):
+class _EnforcerUtils:
     """Logic common used by multiple enforcers"""
 
     def __init__(self, cache=True):
