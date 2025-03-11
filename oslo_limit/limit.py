@@ -352,12 +352,28 @@ class _EnforcerUtils:
             LOG.debug("hit limit for project: %s", over_limit_list)
             raise exception.ProjectOverLimit(project_id, over_limit_list)
 
+    def _get_registered_limits(self):
+        registered_limits = []
+        reg_limits = self.connection.registered_limits(
+            service_id=self._service_id, region_id=self._region_id)
+        for reg_limit in reg_limits:
+            name, limit = reg_limit.resource_name, reg_limit.default_limit
+            registered_limits.append((name, limit))
+            if self.should_cache:
+                self.rlimit_cache[name] = reg_limit
+        return registered_limits
+
     def get_registered_limits(self, resource_names):
         """Get all the default limits for a given resource name list
 
         :param resource_names: list of resource_name strings
         :return: list of (resource_name, limit) pairs
         """
+        # If None was passed for resource_names, get and return all of the
+        # registered limits.
+        if resource_names is None:
+            return self._get_registered_limits()
+
         # Using a list to preserve the resource_name order
         registered_limits = []
         for resource_name in resource_names:
@@ -370,6 +386,25 @@ class _EnforcerUtils:
 
         return registered_limits
 
+    def _get_project_limits(self, project_id):
+        if project_id is None:
+            # If we were to pass None, we would receive limits for all projects
+            # and we would have to return {project_id: [(name, limit), ...]}
+            # which would be inconsistent with the return format of the other
+            # methods.
+            raise ValueError('project_id must not be None')
+
+        project_limits = []
+        proj_limits = self.connection.limits(
+            service_id=self._service_id, region_id=self._region_id,
+            project_id=project_id)
+        for proj_limit in proj_limits:
+            name, limit = proj_limit.resource_name, proj_limit.resource_limit
+            project_limits.append((name, limit))
+            if self.should_cache:
+                self.plimit_cache[project_id][name] = proj_limit
+        return project_limits
+
     def get_project_limits(self, project_id, resource_names):
         """Get all the limits for given project a resource_name list
 
@@ -380,6 +415,11 @@ class _EnforcerUtils:
         :param resource_names: list of resource_name strings
         :return: list of (resource_name,limit) pairs
         """
+        # If None was passed for resource_names, get and return all of the
+        # limits.
+        if resource_names is None:
+            return self._get_project_limits(project_id)
+
         # Using a list to preserver the resource_name order
         project_limits = []
         for resource_name in resource_names:
@@ -422,20 +462,21 @@ class _EnforcerUtils:
                 resource_name in self.plimit_cache[project_id]):
             return self.plimit_cache[project_id][resource_name]
 
-        # Get the limit from keystone.
+        # Get the limits from keystone.
         limits = self.connection.limits(
             service_id=self._service_id,
             region_id=self._region_id,
-            resource_name=resource_name,
             project_id=project_id)
-        try:
-            limit = next(limits)
-        except StopIteration:
-            return None
-
-        # Cache the limit if configured.
-        if self.should_cache and limit:
-            self.plimit_cache[project_id][resource_name] = limit
+        limit = None
+        for pl in limits:
+            # NOTE(melwitt): If project_id None was passed in, it's possible
+            # there will be multiple limits for the same resource (from various
+            # projects), so keep the existing oslo.limit behavior and return
+            # the first one we find. This could be considered to be a bug.
+            if limit is None and pl.resource_name == resource_name:
+                limit = pl
+            if self.should_cache:
+                self.plimit_cache[project_id][pl.resource_name] = pl
 
         return limit
 
@@ -444,18 +485,16 @@ class _EnforcerUtils:
         if resource_name in self.rlimit_cache:
             return self.rlimit_cache[resource_name]
 
-        # Get the limit from keystone.
+        # Get the limits from keystone.
         reg_limits = self.connection.registered_limits(
             service_id=self._service_id,
-            region_id=self._region_id,
-            resource_name=resource_name)
-        try:
-            reg_limit = next(reg_limits)
-        except StopIteration:
-            return None
-
-        # Cache the limit if configured.
-        if self.should_cache and reg_limit:
-            self.rlimit_cache[resource_name] = reg_limit
+            region_id=self._region_id)
+        reg_limit = None
+        for rl in reg_limits:
+            if rl.resource_name == resource_name:
+                reg_limit = rl
+            # Cache the limit if configured.
+            if self.should_cache:
+                self.rlimit_cache[rl.resource_name] = rl
 
         return reg_limit

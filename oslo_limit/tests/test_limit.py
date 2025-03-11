@@ -224,6 +224,45 @@ class TestEnforcer(base.BaseTestCase):
         mock_get_limits.assert_called_once_with(project_id, ["a", "b", "c"])
         self.assertEqual(mock_get_limits.return_value, limits)
 
+    def test_calculate_usage_cache(self, cache=True):
+        project_id = uuid.uuid4().hex
+        fix = self.useFixture(fixture.LimitFixture(
+            {'a': 5, 'b': 7, 'c': 8, 'd': 3},
+            {project_id: {'a': 2, 'b': 4}, 'other': {'a': 1, 'b': 2}}))
+        mock_usage = mock.MagicMock()
+        mock_usage.return_value = {'a': 1, 'b': 3, 'c': 2, 'd': 0}
+
+        enforcer = limit.Enforcer(mock_usage, cache=cache)
+        expected = {
+            'a': limit.ProjectUsage(2, 1),
+            'b': limit.ProjectUsage(4, 3),
+            'c': limit.ProjectUsage(8, 2),
+            'd': limit.ProjectUsage(3, 0),
+        }
+        self.assertEqual(
+            expected,
+            enforcer.calculate_usage(project_id, ['a', 'b', 'c', 'd']))
+
+        # If caching is enabled, there should be three calls to the GET /limits
+        # API: one for 'a' and 'b' and two because of cache misses for 'c' and
+        # 'd' (the project_id has not set a per-project limit for 'c' or 'd',
+        # so they will not be cached for the project).
+        # If caching is disabled, there should be four calls to the GET
+        # /limits API, one for each of 'a', 'b', 'c', and 'd'.
+        expected_count = 3 if cache else 4
+        self.assertEqual(expected_count, fix.mock_conn.limits.call_count)
+
+        # If caching is enabled, there should be one call to the GET
+        # /registered_limits API for 'c' and 'd'.
+        # If caching is disabled, there should be two calls to the GET
+        # /registered_limits API, one for each of 'c' and 'd'.
+        expected_count = 1 if cache else 2
+        self.assertEqual(
+            expected_count, fix.mock_conn.registered_limits.call_count)
+
+    def test_calculate_usage_no_cache(self):
+        self.test_calculate_usage_cache(cache=False)
+
 
 class TestFlatEnforcer(base.BaseTestCase):
     def setUp(self):
@@ -763,3 +802,121 @@ class TestEnforcerUtils(base.BaseTestCase):
             utils._get_limit(None, 'foo')
             mgrl.assert_called_once_with('foo')
             mgpl.assert_not_called()
+
+    def test_get_registered_limits_resource_names_none(self):
+        fix = self.useFixture(fixture.LimitFixture({'foo': 5, 'bar': 7}, {}))
+
+        utils = limit._EnforcerUtils()
+        limits = utils.get_registered_limits(None)
+
+        self.assertEqual([('foo', 5), ('bar', 7)], limits)
+        fix.mock_conn.registered_limits.assert_called_once()
+
+        # Call again with resource names to test caching.
+        limits = utils.get_registered_limits(['foo', 'bar'])
+
+        self.assertEqual([('foo', 5), ('bar', 7)], limits)
+        fix.mock_conn.registered_limits.assert_called_once()
+
+    def test_get_registered_limits_resource_names_none_no_cache(self):
+        fix = self.useFixture(fixture.LimitFixture({'foo': 5, 'bar': 7}, {}))
+
+        utils = limit._EnforcerUtils(cache=False)
+        limits = utils.get_registered_limits(None)
+
+        self.assertEqual([('foo', 5), ('bar', 7)], limits)
+        fix.mock_conn.registered_limits.assert_called_once()
+
+        # Call again with resource names to test caching.
+        limits = utils.get_registered_limits(['foo', 'bar'])
+
+        self.assertEqual([('foo', 5), ('bar', 7)], limits)
+        # First call gets all limits, then one call per resource name.
+        self.assertEqual(3, fix.mock_conn.registered_limits.call_count)
+
+    def test_get_registered_limits_resource_names(self):
+        fix = self.useFixture(fixture.LimitFixture({'foo': 5, 'bar': 7}, {}))
+
+        utils = limit._EnforcerUtils()
+        limits = utils.get_registered_limits(['foo', 'bar'])
+
+        self.assertEqual([('foo', 5), ('bar', 7)], limits)
+        fix.mock_conn.registered_limits.assert_called_once()
+
+    def test_get_registered_limits_resource_names_no_cache(self):
+        fix = self.useFixture(fixture.LimitFixture({'foo': 5, 'bar': 7}, {}))
+
+        utils = limit._EnforcerUtils(cache=False)
+        limits = utils.get_registered_limits(['foo', 'bar'])
+
+        self.assertEqual([('foo', 5), ('bar', 7)], limits)
+        self.assertEqual(2, fix.mock_conn.registered_limits.call_count)
+
+    def test_get_project_limits_resource_names_none_project_id_none(self):
+        # We consider project_id None to be invalid for "get_project_limits"
+        # because it would require us to make the return format for getting
+        # project limits different than the format for registered limits.
+        # [(name, limit), (name, limit), ...]
+        utils = limit._EnforcerUtils()
+        self.assertRaises(ValueError, utils.get_project_limits, None, None)
+
+    def test_get_project_limits_resource_names_none(self):
+        project_id = uuid.uuid4().hex
+        fix = self.useFixture(fixture.LimitFixture(
+            {'foo': 5, 'bar': 7},
+            {project_id: {'foo': 2, 'bar': 4}, 'other': {'foo': 1, 'bar': 2}}))
+
+        utils = limit._EnforcerUtils()
+        limits = utils.get_project_limits(project_id, None)
+
+        self.assertEqual([('foo', 2), ('bar', 4)], limits)
+        fix.mock_conn.limits.assert_called_once()
+
+        # Call again with resource names to test caching.
+        limits = utils.get_project_limits(project_id, ['foo', 'bar'])
+
+        self.assertEqual([('foo', 2), ('bar', 4)], limits)
+        fix.mock_conn.limits.assert_called_once()
+
+    def test_get_project_limits_resource_names_none_no_cache(self):
+        project_id = uuid.uuid4().hex
+        fix = self.useFixture(fixture.LimitFixture(
+            {'foo': 5, 'bar': 7},
+            {project_id: {'foo': 2, 'bar': 4}, 'other': {'foo': 1, 'bar': 2}}))
+
+        utils = limit._EnforcerUtils(cache=False)
+        limits = utils.get_project_limits(project_id, None)
+
+        self.assertEqual([('foo', 2), ('bar', 4)], limits)
+        fix.mock_conn.limits.assert_called_once()
+
+        # Call again with resource names to test caching.
+        limits = utils.get_project_limits(project_id, ['foo', 'bar'])
+
+        self.assertEqual([('foo', 2), ('bar', 4)], limits)
+        # First call gets all limits, then one call per resource name.
+        self.assertEqual(3, fix.mock_conn.limits.call_count)
+
+    def test_get_project_limits_resource_names(self):
+        project_id = uuid.uuid4().hex
+        fix = self.useFixture(fixture.LimitFixture(
+            {'foo': 5, 'bar': 7},
+            {project_id: {'foo': 2, 'bar': 4}, 'other': {'foo': 1, 'bar': 2}}))
+
+        utils = limit._EnforcerUtils()
+        limits = utils.get_project_limits(project_id, ['foo', 'bar'])
+
+        self.assertEqual([('foo', 2), ('bar', 4)], limits)
+        fix.mock_conn.limits.assert_called_once()
+
+    def test_get_project_limits_resource_names_no_cache(self):
+        project_id = uuid.uuid4().hex
+        fix = self.useFixture(fixture.LimitFixture(
+            {'foo': 5, 'bar': 7},
+            {project_id: {'foo': 2, 'bar': 4}, 'other': {'foo': 1, 'bar': 2}}))
+
+        utils = limit._EnforcerUtils(cache=False)
+        limits = utils.get_project_limits(project_id, ['foo', 'bar'])
+
+        self.assertEqual([('foo', 2), ('bar', 4)], limits)
+        self.assertEqual(2, fix.mock_conn.limits.call_count)
