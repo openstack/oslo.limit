@@ -40,7 +40,10 @@ def _get_keystone_connection():
                 CONF, group='oslo_limit')
             session = loading.load_session_from_conf_options(
                 CONF, group='oslo_limit', auth=auth)
-            _SDK_CONNECTION = connection.Connection(session=session).identity
+            _SDK_CONNECTION = connection.Connection(
+                session=session,
+                interface=CONF.oslo_limit.interface
+            ).identity
         except (ksa_exceptions.NoMatchingPlugin,
                 ksa_exceptions.MissingRequiredOptions,
                 ksa_exceptions.MissingAuthPlugin,
