@@ -17,6 +17,7 @@ import fixtures as fixtures
 
 from openstack.identity.v3 import endpoint
 from openstack.identity.v3 import limit as keystone_limit
+from openstack.identity.v3 import registered_limit as keystone_rlimit
 
 
 class LimitFixture(fixtures.Fixture):
@@ -35,6 +36,35 @@ class LimitFixture(fixtures.Fixture):
         """
         self.reglimits = reglimits
         self.projlimits = projlimits
+
+    def get_reglimit_objects(
+            self, service_id=None, region_id=None, resource_name=None):
+        limits = []
+        for name, value in self.reglimits.items():
+            if resource_name and resource_name != name:
+                continue
+            limit = keystone_rlimit.RegisteredLimit()
+            limit.resource_name = name
+            limit.default_limit = value
+            limits.append(limit)
+        return limits
+
+    def get_projlimit_objects(
+            self, service_id=None, region_id=None, resource_name=None,
+            project_id=None):
+        limits = []
+        for proj_id, limit_dict in self.projlimits.items():
+            if project_id and project_id != proj_id:
+                continue
+            for name, value in limit_dict.items():
+                if resource_name and resource_name != name:
+                    continue
+                limit = keystone_limit.Limit()
+                limit.project_id = proj_id
+                limit.resource_name = name
+                limit.resource_limit = value
+                limits.append(limit)
+        return limits
 
     def setUp(self):
         super().setUp()
@@ -56,20 +86,6 @@ class LimitFixture(fixtures.Fixture):
         fake_endpoint.region_id = "region_id"
         self.mock_conn.get_endpoint.return_value = fake_endpoint
 
-        def fake_limits(service_id, region_id, resource_name, project_id=None):
-            this_limit = keystone_limit.Limit()
-            this_limit.resource_name = resource_name
-            if project_id is None:
-                this_limit.default_limit = self.reglimits.get(resource_name)
-                if this_limit.default_limit is None:
-                    return iter([None])
-            else:
-                this_limit.resource_limit = \
-                    self.projlimits.get(project_id, {}).get(resource_name)
-                if this_limit.resource_limit is None:
-                    return iter([None])
-
-            return iter([this_limit])
-
-        self.mock_conn.limits.side_effect = fake_limits
-        self.mock_conn.registered_limits.side_effect = fake_limits
+        self.mock_conn.limits.side_effect = self.get_projlimit_objects
+        self.mock_conn.registered_limits.side_effect = (
+            self.get_reglimit_objects)
