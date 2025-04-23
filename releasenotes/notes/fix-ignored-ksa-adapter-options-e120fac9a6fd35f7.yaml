@@ -1,0 +1,5 @@
+---
+fixes:
+  - |
+    Fix ignored keystoneauth adapter options such as valid_interfaces.
+

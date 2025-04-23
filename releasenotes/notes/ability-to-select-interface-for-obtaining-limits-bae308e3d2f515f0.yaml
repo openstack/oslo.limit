@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Added option ``interface`` to ``[oslo_limit]`` section, introducing ability
-    to select interface for communicating with identity service for obtaining
-    limits.

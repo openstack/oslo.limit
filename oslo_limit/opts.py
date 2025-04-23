@@ -43,11 +43,6 @@ _options = [
         choices=['public', 'publicURL', 'internal', 'internalURL',
                  'admin', 'adminURL'],
         help=_("The interface for endpoint discovery")),
-    cfg.StrOpt(
-        'interface',
-        default='public',
-        choices=['public', 'internal', 'admin'],
-        help=_("The interface used for communication with identity service.")),
 ]
 
 _option_group = 'oslo_limit'

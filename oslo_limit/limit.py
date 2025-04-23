@@ -40,9 +40,18 @@ def _get_keystone_connection():
                 CONF, group='oslo_limit')
             session = loading.load_session_from_conf_options(
                 CONF, group='oslo_limit', auth=auth)
+            ksa_opts = loading.get_adapter_conf_options(
+                include_deprecated=False)
+            conn_kwargs = {}
+            for opt in ksa_opts:
+                if opt.dest != 'valid_interfaces':
+                    conn_kwargs['identity_' + opt.dest] = getattr(
+                        CONF.oslo_limit, opt.dest)
+            conn_kwargs['identity_interface'] = \
+                CONF.oslo_limit.valid_interfaces
             _SDK_CONNECTION = connection.Connection(
                 session=session,
-                interface=CONF.oslo_limit.interface
+                **conn_kwargs
             ).identity
         except (ksa_exceptions.NoMatchingPlugin,
                 ksa_exceptions.MissingRequiredOptions,
