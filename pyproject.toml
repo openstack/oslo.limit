@@ -29,7 +29,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://docs.openstack.org/oslo.limit/latest/"
+Homepage = "https://docs.openstack.org/oslo.limit"
+Repository = "https://opendev.org/openstack/oslo.limit"
 
 [project.entry-points."oslo.config.opts"]
 "oslo.limit" = "oslo_limit.opts:list_opts"
