@@ -305,6 +305,7 @@ class _EnforcerUtils:
         try:
             services = self.connection.services(type=service_type,
                                                 name=service_name)
+            services = list(services)
             if len(services) > 1:
                 raise ValueError("Multiple services found")
             service_id = services[0].id
@@ -315,6 +316,7 @@ class _EnforcerUtils:
             try:
                 regions = self.connection.regions(
                     name=CONF.oslo_limit.endpoint_region_name)
+                regions = list(regions)
                 if len(regions) > 1:
                     raise ValueError("Multiple regions found")
                 region_id = regions[0].id
@@ -328,6 +330,7 @@ class _EnforcerUtils:
                 service_id=service_id, region_id=region_id,
                 interface=CONF.oslo_limit.endpoint_interface,
             )
+            endpoints = list(endpoints)
         except os_exceptions.ResourceNotFound:
             raise ValueError("Endpoint not found")
 
