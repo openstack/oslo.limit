@@ -1,0 +1,6 @@
+---
+fixes:
+  - |
+    `bug 2123895` <https://bugs.launchpad.net/oslo.limit/+bug/2123895>`_:
+    Fixed the capability to query endpoint id from Keystone, which consistently
+    failed due to internal TypeError.

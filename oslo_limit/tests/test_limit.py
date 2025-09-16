@@ -437,7 +437,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
                                                         name='SERVICE_NAME')
         self.mock_conn.endpoints.assert_called_once_with(
-            service_id='SERVICE_ID', region_id=None, interface='publicURL')
+            service_id='SERVICE_ID', region_id=None, interface='public')
 
     def test_get_endpoint_lookup_multiple_endpoints(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)
@@ -462,7 +462,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
                                                         name='SERVICE_NAME')
         self.mock_conn.endpoints.assert_called_once_with(
-            service_id='SERVICE_ID', region_id=None, interface='publicURL')
+            service_id='SERVICE_ID', region_id=None, interface='public')
 
     def test_get_endpoint_lookup_endpoint_not_found(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)
@@ -485,7 +485,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
                                                         name='SERVICE_NAME')
         self.mock_conn.endpoints.assert_called_once_with(
-            service_id='SERVICE_ID', region_id=None, interface='publicURL')
+            service_id='SERVICE_ID', region_id=None, interface='public')
 
     def test_get_endpoint_lookup_multiple_service(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)
@@ -557,7 +557,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.regions.assert_called_once_with(name='regionOne')
         self.mock_conn.endpoints.assert_called_once_with(
             service_id='SERVICE_ID', region_id='REGION_ID',
-            interface='publicURL')
+            interface='public')
 
     def test_get_endpoint_lookup_with_region_not_found(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)
