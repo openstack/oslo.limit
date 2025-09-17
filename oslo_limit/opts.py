@@ -39,8 +39,9 @@ _options = [
         help=_("Region to which the endpoint belongs")),
     cfg.StrOpt(
         'endpoint_interface',
-        default='public',
-        choices=['public', 'internal', 'admin'],
+        default='publicURL',
+        choices=['public', 'publicURL', 'internal', 'internalURL',
+                 'admin', 'adminURL'],
         help=_("The interface for endpoint discovery")),
 ]
 
