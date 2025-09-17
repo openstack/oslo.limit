@@ -336,11 +336,14 @@ class _EnforcerUtils:
         else:
             region_id = None
 
+        interface = CONF.oslo_limit.endpoint_interface
+        if interface.endswith('URL'):
+            interface = interface[:-3]
         try:
             endpoints = self.connection.endpoints(
                 service_id=service_id,
                 region_id=region_id,
-                interface=CONF.oslo_limit.endpoint_interface,
+                interface=interface,
             )
             endpoints = list(endpoints)
         except os_exceptions.ResourceNotFound:
