@@ -39,3 +39,6 @@ Repository = "https://opendev.org/openstack/oslo.limit"
 packages = [
     "oslo_limit"
 ]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
