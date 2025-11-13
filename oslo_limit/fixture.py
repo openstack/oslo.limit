@@ -38,7 +38,8 @@ class LimitFixture(fixtures.Fixture):
         self.projlimits = projlimits
 
     def get_reglimit_objects(
-            self, service_id=None, region_id=None, resource_name=None):
+        self, service_id=None, region_id=None, resource_name=None
+    ):
         limits = []
         for name, value in self.reglimits.items():
             if resource_name and resource_name != name:
@@ -50,8 +51,12 @@ class LimitFixture(fixtures.Fixture):
         return limits
 
     def get_projlimit_objects(
-            self, service_id=None, region_id=None, resource_name=None,
-            project_id=None):
+        self,
+        service_id=None,
+        region_id=None,
+        resource_name=None,
+        project_id=None,
+    ):
         limits = []
         for proj_id, limit_dict in self.projlimits.items():
             if project_id and project_id != proj_id:
@@ -71,13 +76,18 @@ class LimitFixture(fixtures.Fixture):
 
         # We mock our own cached connection to Keystone
         self.mock_conn = mock.MagicMock()
-        self.useFixture(fixtures.MockPatch('oslo_limit.limit._SDK_CONNECTION',
-                                           new=self.mock_conn))
+        self.useFixture(
+            fixtures.MockPatch(
+                'oslo_limit.limit._SDK_CONNECTION', new=self.mock_conn
+            )
+        )
 
         # Use a flat enforcement model
         mock_gem = self.useFixture(
-            fixtures.MockPatch('oslo_limit.limit.Enforcer.'
-                               '_get_enforcement_model')).mock
+            fixtures.MockPatch(
+                'oslo_limit.limit.Enforcer._get_enforcement_model'
+            )
+        ).mock
         mock_gem.return_value = 'flat'
 
         # Fake keystone endpoint; no per-service limit distinction
@@ -88,4 +98,5 @@ class LimitFixture(fixtures.Fixture):
 
         self.mock_conn.limits.side_effect = self.get_projlimit_objects
         self.mock_conn.registered_limits.side_effect = (
-            self.get_reglimit_objects)
+            self.get_reglimit_objects
+        )

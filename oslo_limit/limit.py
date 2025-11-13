@@ -37,28 +37,34 @@ def _get_keystone_connection():
     if not _SDK_CONNECTION:
         try:
             auth = loading.load_auth_from_conf_options(
-                CONF, group='oslo_limit')
+                CONF, group='oslo_limit'
+            )
             session = loading.load_session_from_conf_options(
-                CONF, group='oslo_limit', auth=auth)
+                CONF, group='oslo_limit', auth=auth
+            )
             ksa_opts = loading.get_adapter_conf_options(
-                include_deprecated=False)
+                include_deprecated=False
+            )
             conn_kwargs = {}
             for opt in ksa_opts:
                 if opt.dest != 'valid_interfaces':
                     conn_kwargs['identity_' + opt.dest] = getattr(
-                        CONF.oslo_limit, opt.dest)
-            conn_kwargs['identity_interface'] = \
+                        CONF.oslo_limit, opt.dest
+                    )
+            conn_kwargs['identity_interface'] = (
                 CONF.oslo_limit.valid_interfaces
+            )
             _SDK_CONNECTION = connection.Connection(
-                session=session,
-                **conn_kwargs
+                session=session, **conn_kwargs
             ).identity
-        except (ksa_exceptions.NoMatchingPlugin,
-                ksa_exceptions.MissingRequiredOptions,
-                ksa_exceptions.MissingAuthPlugin,
-                ksa_exceptions.DiscoveryFailure,
-                ksa_exceptions.Unauthorized) as e:
-            msg = 'Unable to initialize OpenStackSDK session: %s' % e
+        except (
+            ksa_exceptions.NoMatchingPlugin,
+            ksa_exceptions.MissingRequiredOptions,
+            ksa_exceptions.MissingAuthPlugin,
+            ksa_exceptions.DiscoveryFailure,
+            ksa_exceptions.Unauthorized,
+        ) as e:
+            msg = f'Unable to initialize OpenStackSDK session: {e}'
             LOG.error(msg)
             raise exception.SessionInitError(e)
 
@@ -66,7 +72,6 @@ def _get_keystone_connection():
 
 
 class Enforcer:
-
     def __init__(self, usage_callback, cache=True):
         """An object for checking usage against resource limits and requests.
 
@@ -95,7 +100,7 @@ class Enforcer:
         for impl in _MODELS:
             if model == impl.name:
                 return impl(usage_callback, cache=cache)
-        raise ValueError("enforcement model %s is not supported" % model)
+        raise ValueError(f"enforcement model {model} is not supported")
 
     def enforce(self, project_id, deltas):
         """Check resource usage against limits for resources in deltas
@@ -135,7 +140,8 @@ class Enforcer:
 
         """
         if project_id is not None and (
-                not project_id or not isinstance(project_id, str)):
+            not project_id or not isinstance(project_id, str)
+        ):
             msg = 'project_id must be a non-empty string or None.'
             raise ValueError(msg)
         if not isinstance(deltas, dict) or len(deltas) == 0:
@@ -170,12 +176,15 @@ class Enforcer:
                   requested names against the provided project.
         """
         if project_id is not None and (
-                not project_id or not isinstance(project_id, str)):
+            not project_id or not isinstance(project_id, str)
+        ):
             msg = 'project_id must be a non-empty string or None.'
             raise ValueError(msg)
 
-        msg = ('resources_to_check must be non-empty sequence of '
-               'resource name strings')
+        msg = (
+            'resources_to_check must be non-empty sequence of '
+            'resource name strings'
+        )
         try:
             if len(resources_to_check) == 0:
                 raise ValueError(msg)
@@ -189,19 +198,19 @@ class Enforcer:
         limits = self.model.get_project_limits(project_id, resources_to_check)
         usage = self.model.get_project_usage(project_id, resources_to_check)
 
-        return {resource: ProjectUsage(limit, usage[resource])
-                for resource, limit in limits}
+        return {
+            resource: ProjectUsage(limit, usage[resource])
+            for resource, limit in limits
+        }
 
     def get_registered_limits(self, resources_to_check):
         return self.model.get_registered_limits(resources_to_check)
 
     def get_project_limits(self, project_id, resources_to_check):
-        return self.model.get_project_limits(project_id,
-                                             resources_to_check)
+        return self.model.get_project_limits(project_id, resources_to_check)
 
 
 class _FlatEnforcer:
-
     name = 'flat'
 
     def __init__(self, usage_callback, cache=True):
@@ -222,17 +231,17 @@ class _FlatEnforcer:
         # Always check the limits in the same order, for predictable errors
         resources_to_check.sort()
 
-        project_limits = self.get_project_limits(project_id,
-                                                 resources_to_check)
-        current_usage = self.get_project_usage(project_id,
-                                               resources_to_check)
+        project_limits = self.get_project_limits(
+            project_id, resources_to_check
+        )
+        current_usage = self.get_project_usage(project_id, resources_to_check)
 
-        self._utils.enforce_limits(project_id, project_limits,
-                                   current_usage, deltas)
+        self._utils.enforce_limits(
+            project_id, project_limits, current_usage, deltas
+        )
 
 
 class _StrictTwoLevelEnforcer:
-
     name = 'strict-two-level'
 
     def __init__(self, usage_callback, cache=True):
@@ -256,8 +265,7 @@ _MODELS = [_FlatEnforcer, _StrictTwoLevelEnforcer]
 
 class _LimitNotFound(Exception):
     def __init__(self, resource):
-        msg = "Can't find the limit for resource {resource}".format(
-            resource=resource)
+        msg = f"Can't find the limit for resource {resource}"
         self.resource = resource
         super().__init__(msg)
 
@@ -292,7 +300,7 @@ class _EnforcerUtils:
         try:
             endpoint = self.connection.get_endpoint(endpoint_id)
         except os_exceptions.ResourceNotFound:
-            raise ValueError("Can't find endpoint for %s" % endpoint_id)
+            raise ValueError(f"Can't find endpoint for {endpoint_id}")
         return endpoint
 
     def _get_endpoint_by_service_lookup(self):
@@ -300,11 +308,13 @@ class _EnforcerUtils:
         service_name = CONF.oslo_limit.endpoint_service_name
         if not service_type and not service_name:
             raise ValueError(
-                "Either service_type or service_name should be set")
+                "Either service_type or service_name should be set"
+            )
 
         try:
-            services = self.connection.services(type=service_type,
-                                                name=service_name)
+            services = self.connection.services(
+                type=service_type, name=service_name
+            )
             services = list(services)
             if len(services) > 1:
                 raise ValueError("Multiple services found")
@@ -315,7 +325,8 @@ class _EnforcerUtils:
         if CONF.oslo_limit.endpoint_region_name is not None:
             try:
                 regions = self.connection.regions(
-                    name=CONF.oslo_limit.endpoint_region_name)
+                    name=CONF.oslo_limit.endpoint_region_name
+                )
                 regions = list(regions)
                 if len(regions) > 1:
                     raise ValueError("Multiple regions found")
@@ -327,7 +338,8 @@ class _EnforcerUtils:
 
         try:
             endpoints = self.connection.endpoints(
-                service_id=service_id, region_id=region_id,
+                service_id=service_id,
+                region_id=region_id,
                 interface=CONF.oslo_limit.endpoint_interface,
             )
             endpoints = list(endpoints)
@@ -353,15 +365,18 @@ class _EnforcerUtils:
         over_limit_list = []
         for resource_name, limit in limits:
             if resource_name not in current_usage:
-                msg = "unable to get current usage for %s" % resource_name
+                msg = f"unable to get current usage for {resource_name}"
                 raise ValueError(msg)
 
             current = int(current_usage[resource_name])
             delta = int(deltas[resource_name])
             proposed_usage_total = current + delta
             if proposed_usage_total > limit:
-                over_limit_list.append(exception.OverLimitInfo(
-                    resource_name, limit, current, delta))
+                over_limit_list.append(
+                    exception.OverLimitInfo(
+                        resource_name, limit, current, delta
+                    )
+                )
 
         if len(over_limit_list) > 0:
             LOG.debug("hit limit for project: %s", over_limit_list)
@@ -370,7 +385,8 @@ class _EnforcerUtils:
     def _get_registered_limits(self):
         registered_limits = []
         reg_limits = self.connection.registered_limits(
-            service_id=self._service_id, region_id=self._region_id)
+            service_id=self._service_id, region_id=self._region_id
+        )
         for reg_limit in reg_limits:
             name, limit = reg_limit.resource_name, reg_limit.default_limit
             registered_limits.append((name, limit))
@@ -411,8 +427,10 @@ class _EnforcerUtils:
 
         project_limits = []
         proj_limits = self.connection.limits(
-            service_id=self._service_id, region_id=self._region_id,
-            project_id=project_id)
+            service_id=self._service_id,
+            region_id=self._region_id,
+            project_id=project_id,
+        )
         for proj_limit in proj_limits:
             name, limit = proj_limit.resource_name, proj_limit.resource_limit
             project_limits.append((name, limit))
@@ -452,8 +470,11 @@ class _EnforcerUtils:
         # to the cache. Do this for both project limits and registered limits.
 
         # Look for a project limit first.
-        project_limit = (self._get_project_limit(project_id, resource_name)
-                         if project_id is not None else None)
+        project_limit = (
+            self._get_project_limit(project_id, resource_name)
+            if project_id is not None
+            else None
+        )
 
         if project_limit:
             return project_limit.resource_limit
@@ -467,21 +488,29 @@ class _EnforcerUtils:
         LOG.error(
             "Unable to find registered limit for resource "
             "%(resource)s for %(service)s in region %(region)s.",
-            {"resource": resource_name, "service": self._service_id,
-             "region": self._region_id}, exec_info=False)
+            {
+                "resource": resource_name,
+                "service": self._service_id,
+                "region": self._region_id,
+            },
+            exec_info=False,
+        )
         raise _LimitNotFound(resource_name)
 
     def _get_project_limit(self, project_id, resource_name):
         # Look in the cache first.
-        if (project_id in self.plimit_cache and
-                resource_name in self.plimit_cache[project_id]):
+        if (
+            project_id in self.plimit_cache
+            and resource_name in self.plimit_cache[project_id]
+        ):
             return self.plimit_cache[project_id][resource_name]
 
         # Get the limits from keystone.
         limits = self.connection.limits(
             service_id=self._service_id,
             region_id=self._region_id,
-            project_id=project_id)
+            project_id=project_id,
+        )
         limit = None
         for pl in limits:
             # NOTE(melwitt): If project_id None was passed in, it's possible
@@ -502,8 +531,8 @@ class _EnforcerUtils:
 
         # Get the limits from keystone.
         reg_limits = self.connection.registered_limits(
-            service_id=self._service_id,
-            region_id=self._region_id)
+            service_id=self._service_id, region_id=self._region_id
+        )
         reg_limit = None
         for rl in reg_limits:
             if rl.resource_name == resource_name:

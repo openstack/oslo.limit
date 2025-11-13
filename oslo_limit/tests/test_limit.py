@@ -38,23 +38,17 @@ CONF = cfg.CONF
 
 
 class TestEnforcer(base.BaseTestCase):
-
     def setUp(self):
         super().setUp()
         self.deltas = dict()
         self.config_fixture = self.useFixture(config_fixture.Config(CONF))
+        self.config_fixture.config(group='oslo_limit', auth_type='password')
         self.config_fixture.config(
-            group='oslo_limit',
-            auth_type='password'
-        )
-        self.config_fixture.config(
-            group='oslo_limit',
-            endpoint_id='ENDPOINT_ID'
+            group='oslo_limit', endpoint_id='ENDPOINT_ID'
         )
         opts.register_opts(CONF)
         self.config_fixture.config(
-            group='oslo_limit',
-            auth_url='http://identity.example.com'
+            group='oslo_limit', auth_url='http://identity.example.com'
         )
 
         limit._SDK_CONNECTION = mock.MagicMock()
@@ -69,11 +63,7 @@ class TestEnforcer(base.BaseTestCase):
         invalid_callback_types = [uuid.uuid4().hex, 5, 5.1]
 
         for invalid_callback in invalid_callback_types:
-            self.assertRaises(
-                ValueError,
-                limit.Enforcer,
-                invalid_callback
-            )
+            self.assertRaises(ValueError, limit.Enforcer, invalid_callback)
 
     def test_deltas_must_be_a_dictionary(self):
         project_id = uuid.uuid4().hex
@@ -82,10 +72,7 @@ class TestEnforcer(base.BaseTestCase):
 
         for invalid_delta in invalid_delta_types:
             self.assertRaises(
-                ValueError,
-                enforcer.enforce,
-                project_id,
-                invalid_delta
+                ValueError, enforcer.enforce, project_id, invalid_delta
             )
 
     def test_project_id_must_be_a_string(self):
@@ -93,10 +80,7 @@ class TestEnforcer(base.BaseTestCase):
         invalid_delta_types = [{}, 5, 5.1, True, False, [], None, ""]
         for invalid_project_id in invalid_delta_types:
             self.assertRaises(
-                ValueError,
-                enforcer.enforce,
-                invalid_project_id,
-                {}
+                ValueError, enforcer.enforce, invalid_project_id, {}
             )
 
     def test_set_model_impl(self):
@@ -117,8 +101,9 @@ class TestEnforcer(base.BaseTestCase):
         self.assertIsInstance(flat_impl, limit._StrictTwoLevelEnforcer)
 
         json.json.return_value = {"model": {"name": "foo"}}
-        e = self.assertRaises(ValueError, enforcer._get_model_impl,
-                              self._get_usage_for_project)
+        e = self.assertRaises(
+            ValueError, enforcer._get_model_impl, self._get_usage_for_project
+        )
         self.assertEqual("enforcement model foo is not supported", str(e))
 
     @mock.patch.object(limit._FlatEnforcer, "enforce")
@@ -145,16 +130,20 @@ class TestEnforcer(base.BaseTestCase):
         }
 
         enforcer = limit.Enforcer(mock_usage)
-        self.assertEqual(expected, enforcer.calculate_usage(project_id,
-                                                            ['a', 'b']))
+        self.assertEqual(
+            expected, enforcer.calculate_usage(project_id, ['a', 'b'])
+        )
 
     @mock.patch.object(limit._EnforcerUtils, "_get_project_limit")
     @mock.patch.object(limit._EnforcerUtils, "_get_registered_limit")
-    def test_calculate_and_enforce_some_missing(self, mock_get_reglimit,
-                                                mock_get_limit):
+    def test_calculate_and_enforce_some_missing(
+        self, mock_get_reglimit, mock_get_limit
+    ):
         # Registered and project limits for a and b, c is unregistered
-        reg_limits = {'a': mock.MagicMock(default_limit=10),
-                      'b': mock.MagicMock(default_limit=10)}
+        reg_limits = {
+            'a': mock.MagicMock(default_limit=10),
+            'b': mock.MagicMock(default_limit=10),
+        }
         prj_limits = {('bar', 'b'): mock.MagicMock(resource_limit=6)}
         mock_get_reglimit.side_effect = lambda r: reg_limits.get(r)
         mock_get_limit.side_effect = lambda p, r: prj_limits.get((p, r))
@@ -172,36 +161,35 @@ class TestEnforcer(base.BaseTestCase):
             'b': limit.ProjectUsage(6, 5),
             'c': limit.ProjectUsage(0, 5),
         }
-        self.assertEqual(expected,
-                         enforcer.calculate_usage('bar', ['a', 'b', 'c']))
+        self.assertEqual(
+            expected, enforcer.calculate_usage('bar', ['a', 'b', 'c'])
+        )
 
         # Make sure that if we enforce, we get the expected behavior
         # of c being considered to be zero
-        self.assertRaises(exception.ProjectOverLimit,
-                          enforcer.enforce, 'bar', {'a': 1, 'b': 0, 'c': 1})
+        self.assertRaises(
+            exception.ProjectOverLimit,
+            enforcer.enforce,
+            'bar',
+            {'a': 1, 'b': 0, 'c': 1},
+        )
 
     def test_calculate_usage_bad_params(self):
         enforcer = limit.Enforcer(mock.MagicMock())
 
         # Non-string project_id
-        self.assertRaises(ValueError,
-                          enforcer.calculate_usage,
-                          123, ['foo'])
+        self.assertRaises(ValueError, enforcer.calculate_usage, 123, ['foo'])
 
         # Zero-length resources_to_check
-        self.assertRaises(ValueError,
-                          enforcer.calculate_usage,
-                          'project', [])
+        self.assertRaises(ValueError, enforcer.calculate_usage, 'project', [])
 
         # Non-sequence resources_to_check
-        self.assertRaises(ValueError,
-                          enforcer.calculate_usage,
-                          'project', 123)
+        self.assertRaises(ValueError, enforcer.calculate_usage, 'project', 123)
 
         # Invalid non-string value in resources_to_check
-        self.assertRaises(ValueError,
-                          enforcer.calculate_usage,
-                          'project', ['a', 123, 'b'])
+        self.assertRaises(
+            ValueError, enforcer.calculate_usage, 'project', ['a', 123, 'b']
+        )
 
     @mock.patch.object(limit._EnforcerUtils, "get_registered_limits")
     def test_get_registered_limits(self, mock_get_limits):
@@ -226,9 +214,12 @@ class TestEnforcer(base.BaseTestCase):
 
     def test_calculate_usage_cache(self, cache=True):
         project_id = uuid.uuid4().hex
-        fix = self.useFixture(fixture.LimitFixture(
-            {'a': 5, 'b': 7, 'c': 8, 'd': 3},
-            {project_id: {'a': 2, 'b': 4}, 'other': {'a': 1, 'b': 2}}))
+        fix = self.useFixture(
+            fixture.LimitFixture(
+                {'a': 5, 'b': 7, 'c': 8, 'd': 3},
+                {project_id: {'a': 2, 'b': 4}, 'other': {'a': 1, 'b': 2}},
+            )
+        )
         mock_usage = mock.MagicMock()
         mock_usage.return_value = {'a': 1, 'b': 3, 'c': 2, 'd': 0}
 
@@ -241,7 +232,8 @@ class TestEnforcer(base.BaseTestCase):
         }
         self.assertEqual(
             expected,
-            enforcer.calculate_usage(project_id, ['a', 'b', 'c', 'd']))
+            enforcer.calculate_usage(project_id, ['a', 'b', 'c', 'd']),
+        )
 
         # If caching is enabled, there should be three calls to the GET /limits
         # API: one for 'a' and 'b' and two because of cache misses for 'c' and
@@ -258,7 +250,8 @@ class TestEnforcer(base.BaseTestCase):
         # /registered_limits API, one for each of 'c' and 'd'.
         expected_count = 1 if cache else 2
         self.assertEqual(
-            expected_count, fix.mock_conn.registered_limits.call_count)
+            expected_count, fix.mock_conn.registered_limits.call_count
+        )
 
     def test_calculate_usage_no_cache(self):
         self.test_calculate_usage_cache(cache=False)
@@ -269,8 +262,7 @@ class TestFlatEnforcer(base.BaseTestCase):
         super().setUp()
         self.config_fixture = self.useFixture(config_fixture.Config(CONF))
         self.config_fixture.config(
-            group='oslo_limit',
-            endpoint_id='ENDPOINT_ID'
+            group='oslo_limit', endpoint_id='ENDPOINT_ID'
         )
         opts.register_opts(CONF)
         self.mock_conn = mock.MagicMock()
@@ -323,11 +315,14 @@ class TestFlatEnforcer(base.BaseTestCase):
         mock_usage.return_value = {"a": 0, "b": 1}
 
         enforcer = limit._FlatEnforcer(mock_usage)
-        e = self.assertRaises(exception.ProjectOverLimit, enforcer.enforce,
-                              project_id, deltas)
-        expected = ("Project %s is over a limit for "
-                    "[Resource a is over limit of 1 due to current usage 0 "
-                    "and delta 2]")
+        e = self.assertRaises(
+            exception.ProjectOverLimit, enforcer.enforce, project_id, deltas
+        )
+        expected = (
+            "Project %s is over a limit for "
+            "[Resource a is over limit of 1 due to current usage 0 "
+            "and delta 2]"
+        )
         self.assertEqual(expected % project_id, str(e))
         self.assertEqual(project_id, e.project_id)
         self.assertEqual(1, len(e.over_limit_info_list))
@@ -339,8 +334,9 @@ class TestFlatEnforcer(base.BaseTestCase):
 
     @mock.patch.object(limit._EnforcerUtils, "_get_project_limit")
     @mock.patch.object(limit._EnforcerUtils, "_get_registered_limit")
-    def test_enforce_raises_on_missing_limit(self, mock_get_reglimit,
-                                             mock_get_limit):
+    def test_enforce_raises_on_missing_limit(
+        self, mock_get_reglimit, mock_get_limit
+    ):
         def mock_usage(*a):
             return {'a': 1, 'b': 1}
 
@@ -350,11 +346,13 @@ class TestFlatEnforcer(base.BaseTestCase):
         mock_get_limit.return_value = None
 
         enforcer = limit._FlatEnforcer(mock_usage)
-        self.assertRaises(exception.ProjectOverLimit, enforcer.enforce,
-                          project_id, deltas)
+        self.assertRaises(
+            exception.ProjectOverLimit, enforcer.enforce, project_id, deltas
+        )
 
-        self.assertRaises(exception.ProjectOverLimit, enforcer.enforce,
-                          None, deltas)
+        self.assertRaises(
+            exception.ProjectOverLimit, enforcer.enforce, None, deltas
+        )
 
 
 class TestEnforcerUtils(base.BaseTestCase):
@@ -362,8 +360,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         super().setUp()
         self.config_fixture = self.useFixture(config_fixture.Config(CONF))
         self.config_fixture.config(
-            group='oslo_limit',
-            endpoint_id='ENDPOINT_ID'
+            group='oslo_limit', endpoint_id='ENDPOINT_ID'
         )
         opts.register_opts(CONF)
         self.mock_conn = mock.MagicMock()
@@ -382,25 +379,21 @@ class TestEnforcerUtils(base.BaseTestCase):
 
     def test_get_endpoint_no_id(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)
-        self.mock_conn.get_endpoint.side_effect = \
+        self.mock_conn.get_endpoint.side_effect = (
             os_exceptions.ResourceNotFound
-
-        self.assertRaises(
-            ValueError,
-            limit._EnforcerUtils
         )
+
+        self.assertRaises(ValueError, limit._EnforcerUtils)
         self.mock_conn.get_endpoint.assert_not_called()
         self.mock_conn.services.assert_not_called()
         self.mock_conn.endpoints.assert_not_called()
 
     def test_get_endpoint_missing(self):
-        self.mock_conn.get_endpoint.side_effect = \
+        self.mock_conn.get_endpoint.side_effect = (
             os_exceptions.ResourceNotFound
-
-        self.assertRaises(
-            ValueError,
-            limit._EnforcerUtils
         )
+
+        self.assertRaises(ValueError, limit._EnforcerUtils)
         self.mock_conn.get_endpoint.assert_called_once_with('ENDPOINT_ID')
         self.mock_conn.services.assert_not_called()
         self.mock_conn.endpoints.assert_not_called()
@@ -408,10 +401,7 @@ class TestEnforcerUtils(base.BaseTestCase):
     def test_get_endpoint_lookup_without_service_opts(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)
 
-        self.assertRaises(
-            ValueError,
-            limit._EnforcerUtils
-        )
+        self.assertRaises(ValueError, limit._EnforcerUtils)
 
         self.mock_conn.get_endpoint.assert_not_called()
         self.mock_conn.services.assert_not_called()
@@ -434,10 +424,12 @@ class TestEnforcerUtils(base.BaseTestCase):
 
         self.assertEqual(fake_endpoint, utils._endpoint)
         self.mock_conn.get_endpoint.assert_not_called()
-        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
-                                                        name='SERVICE_NAME')
+        self.mock_conn.services.assert_called_once_with(
+            type='SERVICE_TYPE', name='SERVICE_NAME'
+        )
         self.mock_conn.endpoints.assert_called_once_with(
-            service_id='SERVICE_ID', region_id=None, interface='public')
+            service_id='SERVICE_ID', region_id=None, interface='public'
+        )
 
     def test_get_endpoint_lookup_multiple_endpoints(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)
@@ -450,19 +442,19 @@ class TestEnforcerUtils(base.BaseTestCase):
         fake_service = service.Service(id='SERVICE_ID')
         self.mock_conn.services.return_value = [fake_service]
         self.mock_conn.endpoints.return_value = [
-            endpoint.Endpoint(), endpoint.Endpoint()
+            endpoint.Endpoint(),
+            endpoint.Endpoint(),
         ]
 
-        self.assertRaises(
-            ValueError,
-            limit._EnforcerUtils
-        )
+        self.assertRaises(ValueError, limit._EnforcerUtils)
 
         self.mock_conn.get_endpoint.assert_not_called()
-        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
-                                                        name='SERVICE_NAME')
+        self.mock_conn.services.assert_called_once_with(
+            type='SERVICE_TYPE', name='SERVICE_NAME'
+        )
         self.mock_conn.endpoints.assert_called_once_with(
-            service_id='SERVICE_ID', region_id=None, interface='public')
+            service_id='SERVICE_ID', region_id=None, interface='public'
+        )
 
     def test_get_endpoint_lookup_endpoint_not_found(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)
@@ -476,16 +468,15 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.services.return_value = [fake_service]
         self.mock_conn.endpoints.side_effect = os_exceptions.ResourceNotFound
 
-        self.assertRaises(
-            ValueError,
-            limit._EnforcerUtils
-        )
+        self.assertRaises(ValueError, limit._EnforcerUtils)
 
         self.mock_conn.get_endpoint.assert_not_called()
-        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
-                                                        name='SERVICE_NAME')
+        self.mock_conn.services.assert_called_once_with(
+            type='SERVICE_TYPE', name='SERVICE_NAME'
+        )
         self.mock_conn.endpoints.assert_called_once_with(
-            service_id='SERVICE_ID', region_id=None, interface='public')
+            service_id='SERVICE_ID', region_id=None, interface='public'
+        )
 
     def test_get_endpoint_lookup_multiple_service(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)
@@ -497,17 +488,15 @@ class TestEnforcerUtils(base.BaseTestCase):
         )
         self.mock_conn.services.side_effect = [
             service.Service(id='SERVICE_ID1'),
-            service.Service(id='SERVICE_ID2')
+            service.Service(id='SERVICE_ID2'),
         ]
 
-        self.assertRaises(
-            ValueError,
-            limit._EnforcerUtils
-        )
+        self.assertRaises(ValueError, limit._EnforcerUtils)
 
         self.mock_conn.get_endpoint.assert_not_called()
-        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
-                                                        name='SERVICE_NAME')
+        self.mock_conn.services.assert_called_once_with(
+            type='SERVICE_TYPE', name='SERVICE_NAME'
+        )
         self.mock_conn.endpoints.assert_not_called()
 
     def test_get_endpoint_lookup_service_not_found(self):
@@ -520,14 +509,12 @@ class TestEnforcerUtils(base.BaseTestCase):
         )
         self.mock_conn.services.side_effect = os_exceptions.ResourceNotFound
 
-        self.assertRaises(
-            ValueError,
-            limit._EnforcerUtils
-        )
+        self.assertRaises(ValueError, limit._EnforcerUtils)
 
         self.mock_conn.get_endpoint.assert_not_called()
-        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
-                                                        name='SERVICE_NAME')
+        self.mock_conn.services.assert_called_once_with(
+            type='SERVICE_TYPE', name='SERVICE_NAME'
+        )
         self.mock_conn.endpoints.assert_not_called()
 
     def test_get_endpoint_lookup_with_region(self):
@@ -552,12 +539,13 @@ class TestEnforcerUtils(base.BaseTestCase):
 
         self.assertEqual(fake_endpoint, utils._endpoint)
         self.mock_conn.get_endpoint.assert_not_called()
-        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
-                                                        name='SERVICE_NAME')
+        self.mock_conn.services.assert_called_once_with(
+            type='SERVICE_TYPE', name='SERVICE_NAME'
+        )
         self.mock_conn.regions.assert_called_once_with(name='regionOne')
         self.mock_conn.endpoints.assert_called_once_with(
-            service_id='SERVICE_ID', region_id='REGION_ID',
-            interface='public')
+            service_id='SERVICE_ID', region_id='REGION_ID', interface='public'
+        )
 
     def test_get_endpoint_lookup_with_region_not_found(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)
@@ -576,14 +564,12 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.endpoints.return_value = [fake_endpoint]
         self.mock_conn.regions.side_effect = os_exceptions.ResourceNotFound
 
-        self.assertRaises(
-            ValueError,
-            limit._EnforcerUtils
-        )
+        self.assertRaises(ValueError, limit._EnforcerUtils)
 
         self.mock_conn.get_endpoint.assert_not_called()
-        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
-                                                        name='SERVICE_NAME')
+        self.mock_conn.services.assert_called_once_with(
+            type='SERVICE_TYPE', name='SERVICE_NAME'
+        )
         self.mock_conn.regions.assert_called_once_with(name='regionOne')
         self.mock_conn.endpoints.assert_not_called()
 
@@ -603,16 +589,16 @@ class TestEnforcerUtils(base.BaseTestCase):
         fake_endpoint = endpoint.Endpoint()
         self.mock_conn.endpoints.return_value = [fake_endpoint]
         self.mock_conn.regions.return_value = [
-            region.Region(id='REGION_ID1'), region.Region(id='REGION_ID2')]
+            region.Region(id='REGION_ID1'),
+            region.Region(id='REGION_ID2'),
+        ]
 
-        self.assertRaises(
-            ValueError,
-            limit._EnforcerUtils
-        )
+        self.assertRaises(ValueError, limit._EnforcerUtils)
 
         self.mock_conn.get_endpoint.assert_not_called()
-        self.mock_conn.services.assert_called_once_with(type='SERVICE_TYPE',
-                                                        name='SERVICE_NAME')
+        self.mock_conn.services.assert_called_once_with(
+            type='SERVICE_TYPE', name='SERVICE_NAME'
+        )
         self.mock_conn.regions.assert_called_once_with(name='regionOne')
         self.mock_conn.endpoints.assert_not_called()
 
@@ -635,8 +621,9 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.assertEqual(foo, reg_limit)
 
     def test_get_registered_limits(self):
-        fake_endpoint = endpoint.Endpoint(service_id='service_id',
-                                          region_id='region_id')
+        fake_endpoint = endpoint.Endpoint(
+            service_id='service_id', region_id='region_id'
+        )
         self.mock_conn.get_endpoint.return_value = fake_endpoint
 
         # a and c have limits, b doesn't have one
@@ -652,17 +639,20 @@ class TestEnforcerUtils(base.BaseTestCase):
         c.default_limit = 2
         c_iterator = iter([c])
 
-        self.mock_conn.registered_limits.side_effect = [a_iterator,
-                                                        empty_iterator,
-                                                        c_iterator]
+        self.mock_conn.registered_limits.side_effect = [
+            a_iterator,
+            empty_iterator,
+            c_iterator,
+        ]
 
         utils = limit._EnforcerUtils()
         limits = utils.get_registered_limits(["a", "b", "c"])
         self.assertEqual([('a', 1), ('b', 0), ('c', 2)], limits)
 
     def test_get_project_limits(self):
-        fake_endpoint = endpoint.Endpoint(service_id='service_id',
-                                          region_id='region_id')
+        fake_endpoint = endpoint.Endpoint(
+            service_id='service_id', region_id='region_id'
+        )
         self.mock_conn.get_endpoint.return_value = fake_endpoint
         project_id = uuid.uuid4().hex
 
@@ -672,17 +662,23 @@ class TestEnforcerUtils(base.BaseTestCase):
         a.resource_name = "a"
         a.resource_limit = 1
         a_iterator = iter([a])
-        self.mock_conn.limits.side_effect = [a_iterator, empty_iterator,
-                                             empty_iterator, empty_iterator]
+        self.mock_conn.limits.side_effect = [
+            a_iterator,
+            empty_iterator,
+            empty_iterator,
+            empty_iterator,
+        ]
 
         # b has a limit, but c and d doesn't, a isn't ever checked
         b = registered_limit.RegisteredLimit()
         b.resource_name = "b"
         b.default_limit = 2
         b_iterator = iter([b])
-        self.mock_conn.registered_limits.side_effect = [b_iterator,
-                                                        empty_iterator,
-                                                        empty_iterator]
+        self.mock_conn.registered_limits.side_effect = [
+            b_iterator,
+            empty_iterator,
+            empty_iterator,
+        ]
 
         utils = limit._EnforcerUtils()
         limits = utils.get_project_limits(project_id, ["a", "b"])
@@ -695,7 +691,8 @@ class TestEnforcerUtils(base.BaseTestCase):
         # Registered limit = 5 and project limit = 3
         project_id = uuid.uuid4().hex
         fix = self.useFixture(
-            fixture.LimitFixture({'foo': 5}, {project_id: {'foo': 3}}))
+            fixture.LimitFixture({'foo': 5}, {project_id: {'foo': 3}})
+        )
 
         utils = limit._EnforcerUtils(cache=cache)
         foo_limit = utils._get_project_limit(project_id, 'foo')
@@ -716,7 +713,8 @@ class TestEnforcerUtils(base.BaseTestCase):
         # Registered limit = 5 and project limit = 3
         project_id = uuid.uuid4().hex
         fix = self.useFixture(
-            fixture.LimitFixture({'foo': 5}, {project_id: {'foo': 3}}))
+            fixture.LimitFixture({'foo': 5}, {project_id: {'foo': 3}})
+        )
 
         utils = limit._EnforcerUtils(cache=cache)
         foo_limit = utils._get_registered_limit('foo')
@@ -776,8 +774,9 @@ class TestEnforcerUtils(base.BaseTestCase):
 
         mgpl = mock.MagicMock()
         mgrl = mock.MagicMock()
-        with mock.patch.multiple(utils, _get_project_limit=mgpl,
-                                 _get_registered_limit=mgrl):
+        with mock.patch.multiple(
+            utils, _get_project_limit=mgpl, _get_registered_limit=mgrl
+        ):
             # With a project, we expect the project limit to be
             # fetched. If present, we never check the registered limit.
             utils._get_limit('project', 'foo')
@@ -862,9 +861,15 @@ class TestEnforcerUtils(base.BaseTestCase):
 
     def test_get_project_limits_resource_names_none(self):
         project_id = uuid.uuid4().hex
-        fix = self.useFixture(fixture.LimitFixture(
-            {'foo': 5, 'bar': 7},
-            {project_id: {'foo': 2, 'bar': 4}, 'other': {'foo': 1, 'bar': 2}}))
+        fix = self.useFixture(
+            fixture.LimitFixture(
+                {'foo': 5, 'bar': 7},
+                {
+                    project_id: {'foo': 2, 'bar': 4},
+                    'other': {'foo': 1, 'bar': 2},
+                },
+            )
+        )
 
         utils = limit._EnforcerUtils()
         limits = utils.get_project_limits(project_id, None)
@@ -880,9 +885,15 @@ class TestEnforcerUtils(base.BaseTestCase):
 
     def test_get_project_limits_resource_names_none_no_cache(self):
         project_id = uuid.uuid4().hex
-        fix = self.useFixture(fixture.LimitFixture(
-            {'foo': 5, 'bar': 7},
-            {project_id: {'foo': 2, 'bar': 4}, 'other': {'foo': 1, 'bar': 2}}))
+        fix = self.useFixture(
+            fixture.LimitFixture(
+                {'foo': 5, 'bar': 7},
+                {
+                    project_id: {'foo': 2, 'bar': 4},
+                    'other': {'foo': 1, 'bar': 2},
+                },
+            )
+        )
 
         utils = limit._EnforcerUtils(cache=False)
         limits = utils.get_project_limits(project_id, None)
@@ -899,9 +910,15 @@ class TestEnforcerUtils(base.BaseTestCase):
 
     def test_get_project_limits_resource_names(self):
         project_id = uuid.uuid4().hex
-        fix = self.useFixture(fixture.LimitFixture(
-            {'foo': 5, 'bar': 7},
-            {project_id: {'foo': 2, 'bar': 4}, 'other': {'foo': 1, 'bar': 2}}))
+        fix = self.useFixture(
+            fixture.LimitFixture(
+                {'foo': 5, 'bar': 7},
+                {
+                    project_id: {'foo': 2, 'bar': 4},
+                    'other': {'foo': 1, 'bar': 2},
+                },
+            )
+        )
 
         utils = limit._EnforcerUtils()
         limits = utils.get_project_limits(project_id, ['foo', 'bar'])
@@ -911,9 +928,15 @@ class TestEnforcerUtils(base.BaseTestCase):
 
     def test_get_project_limits_resource_names_no_cache(self):
         project_id = uuid.uuid4().hex
-        fix = self.useFixture(fixture.LimitFixture(
-            {'foo': 5, 'bar': 7},
-            {project_id: {'foo': 2, 'bar': 4}, 'other': {'foo': 1, 'bar': 2}}))
+        fix = self.useFixture(
+            fixture.LimitFixture(
+                {'foo': 5, 'bar': 7},
+                {
+                    project_id: {'foo': 2, 'bar': 4},
+                    'other': {'foo': 1, 'bar': 2},
+                },
+            )
+        )
 
         utils = limit._EnforcerUtils(cache=False)
         limits = utils.get_project_limits(project_id, ['foo', 'bar'])

@@ -30,9 +30,10 @@ class ProjectOverLimit(Exception):
 
         self.project_id = project_id
         self.over_limit_info_list = over_limit_info_list
-        msg = _("Project %(project_id)s is over a limit for "
-                "%(limits)s") % {'project_id': project_id,
-                                 'limits': over_limit_info_list}
+        msg = _("Project %(project_id)s is over a limit for %(limits)s") % {
+            'project_id': project_id,
+            'limits': over_limit_info_list,
+        }
         super().__init__(msg)
 
 
@@ -44,10 +45,16 @@ class OverLimitInfo:
         self.delta = int(delta)
 
     def __str__(self):
-        template = ("Resource %s is over limit of %s due to "
-                    "current usage %s and delta %s")
-        return template % (self.resource_name, self.limit,
-                           self.current_usage, self.delta)
+        template = (
+            "Resource %s is over limit of %s due to "
+            "current usage %s and delta %s"
+        )
+        return template % (
+            self.resource_name,
+            self.limit,
+            self.current_usage,
+            self.delta,
+        )
 
     def __repr__(self):
         return self.__str__()
@@ -55,7 +62,7 @@ class OverLimitInfo:
 
 class SessionInitError(Exception):
     def __init__(self, reason):
-        msg = _(
-            "Can't initialise OpenStackSDK session: %(reason)s."
-        ) % {'reason': reason}
+        msg = _("Can't initialise OpenStackSDK session: %(reason)s.") % {
+            'reason': reason
+        }
         super().__init__(msg)
