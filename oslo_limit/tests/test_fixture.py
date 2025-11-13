@@ -95,9 +95,9 @@ class TestFixture(base.BaseTestCase):
 
     def test_calculate_usage(self):
         # Make sure the usage calculator works with the fixture too
-        u = self.enforcer.calculate_usage('project2', ['widgets'])['widgets']
-        self.assertEqual(3, u.usage)
-        self.assertEqual(10, u.limit)
+        u = self.enforcer.calculate_usage('project2', ['widgets'])
+        self.assertEqual(3, u['widgets'].usage)
+        self.assertEqual(10, u['widgets'].limit)
 
         u = self.enforcer.calculate_usage('project1', ['widgets', 'sprockets'])
         self.assertEqual(10, u['sprockets'].usage)

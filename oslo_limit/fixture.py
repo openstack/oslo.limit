@@ -15,13 +15,17 @@ from unittest import mock
 
 import fixtures as fixtures
 
-from openstack.identity.v3 import endpoint
-from openstack.identity.v3 import limit as keystone_limit
-from openstack.identity.v3 import registered_limit as keystone_rlimit
+from openstack.identity.v3 import endpoint as _endpoint
+from openstack.identity.v3 import limit as _limit
+from openstack.identity.v3 import registered_limit as _registered_limit
 
 
-class LimitFixture(fixtures.Fixture):
-    def __init__(self, reglimits, projlimits):
+class LimitFixture(fixtures.Fixture):  # type: ignore
+    def __init__(
+        self,
+        reglimits: dict[str, int],
+        projlimits: dict[str, dict[str, int]],
+    ) -> None:
         """A fixture for testing code that relies on Keystone Unified Limits.
 
         :param reglimits: A dictionary of {resource_name: limit} values to
@@ -38,40 +42,48 @@ class LimitFixture(fixtures.Fixture):
         self.projlimits = projlimits
 
     def get_reglimit_objects(
-        self, service_id=None, region_id=None, resource_name=None
-    ):
+        self,
+        service_id: str | None = None,
+        region_id: str | None = None,
+        resource_name: str | None = None,
+    ) -> list[_registered_limit.RegisteredLimit]:
         limits = []
         for name, value in self.reglimits.items():
             if resource_name and resource_name != name:
                 continue
-            limit = keystone_rlimit.RegisteredLimit()
+
+            limit = _registered_limit.RegisteredLimit()  # type: ignore
             limit.resource_name = name
             limit.default_limit = value
             limits.append(limit)
+
         return limits
 
     def get_projlimit_objects(
         self,
-        service_id=None,
-        region_id=None,
-        resource_name=None,
-        project_id=None,
-    ):
+        service_id: str | None = None,
+        region_id: str | None = None,
+        resource_name: str | None = None,
+        project_id: str | None = None,
+    ) -> list[_limit.Limit]:
         limits = []
         for proj_id, limit_dict in self.projlimits.items():
             if project_id and project_id != proj_id:
                 continue
+
             for name, value in limit_dict.items():
                 if resource_name and resource_name != name:
                     continue
-                limit = keystone_limit.Limit()
+
+                limit = _limit.Limit()  # type: ignore
                 limit.project_id = proj_id
                 limit.resource_name = name
                 limit.resource_limit = value
                 limits.append(limit)
+
         return limits
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
 
         # We mock our own cached connection to Keystone
@@ -91,7 +103,7 @@ class LimitFixture(fixtures.Fixture):
         mock_gem.return_value = 'flat'
 
         # Fake keystone endpoint; no per-service limit distinction
-        fake_endpoint = endpoint.Endpoint()
+        fake_endpoint = _endpoint.Endpoint()  # type: ignore
         fake_endpoint.service_id = "service_id"
         fake_endpoint.region_id = "region_id"
         self.mock_conn.get_endpoint.return_value = fake_endpoint

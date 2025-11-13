@@ -14,7 +14,11 @@ from oslo_limit._i18n import _
 
 
 class ProjectOverLimit(Exception):
-    def __init__(self, project_id, over_limit_info_list):
+    def __init__(
+        self,
+        project_id: str,
+        over_limit_info_list: list['OverLimitInfo'],
+    ) -> None:
         """Exception raised when a project goes over one or more limits
 
         :param project_id: the project id
@@ -22,8 +26,10 @@ class ProjectOverLimit(Exception):
         """
         if not isinstance(over_limit_info_list, list):
             raise ValueError(over_limit_info_list)
+
         if len(over_limit_info_list) == 0:
             raise ValueError(over_limit_info_list)
+
         for info in over_limit_info_list:
             if not isinstance(info, OverLimitInfo):
                 raise ValueError(over_limit_info_list)
@@ -38,13 +44,19 @@ class ProjectOverLimit(Exception):
 
 
 class OverLimitInfo:
-    def __init__(self, resource_name, limit, current_usage, delta):
+    def __init__(
+        self,
+        resource_name: str,
+        limit: int,
+        current_usage: int,
+        delta: int,
+    ):
         self.resource_name = resource_name
         self.limit = int(limit)
         self.current_usage = int(current_usage)
         self.delta = int(delta)
 
-    def __str__(self):
+    def __str__(self) -> str:
         template = (
             "Resource %s is over limit of %s due to "
             "current usage %s and delta %s"
@@ -56,12 +68,12 @@ class OverLimitInfo:
             self.delta,
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
 
 class SessionInitError(Exception):
-    def __init__(self, reason):
+    def __init__(self, reason: object) -> None:
         msg = _("Can't initialise OpenStackSDK session: %(reason)s.") % {
             'reason': reason
         }
