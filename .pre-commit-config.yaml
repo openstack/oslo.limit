@@ -23,3 +23,18 @@ repos:
       - id: ruff-check
         args: ['--fix', '--unsafe-fixes']
       - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.2
+    hooks:
+      - id: mypy
+        additional_dependencies: [
+          'keystoneauth',
+          'oslo.i18n',
+          'openstacksdk',
+        ]
+        # keep this in-sync with '[tool.mypy] exclude' in 'pyproject.toml'
+        exclude: |
+          (?x)(
+            doc/.*
+            | releasenotes/.*
+          )

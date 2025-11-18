@@ -16,6 +16,8 @@ test_limit
 Tests for `limit` module.
 """
 
+from collections.abc import Iterable
+from typing import Any
 from unittest import mock
 import uuid
 
@@ -89,7 +91,7 @@ class TestEnforcer(base.BaseTestCase):
 
     def test_get_model_impl(self):
         json = mock.MagicMock()
-        limit._SDK_CONNECTION.get.return_value = json
+        limit._SDK_CONNECTION.get.return_value = json  # type: ignore
 
         json.json.return_value = {"model": {"name": "flat"}}
         enforcer = limit.Enforcer(self._get_usage_for_project)
@@ -195,7 +197,7 @@ class TestEnforcer(base.BaseTestCase):
     def test_get_registered_limits(self, mock_get_limits):
         mock_get_limits.return_value = [("a", 1), ("b", 0), ("c", 2)]
 
-        enforcer = limit.Enforcer(lambda: None)
+        enforcer = limit.Enforcer(lambda: None)  # type: ignore
         limits = enforcer.get_registered_limits(["a", "b", "c"])
 
         mock_get_limits.assert_called_once_with(["a", "b", "c"])
@@ -206,7 +208,7 @@ class TestEnforcer(base.BaseTestCase):
         project_id = uuid.uuid4().hex
         mock_get_limits.return_value = [("a", 1), ("b", 0), ("c", 2)]
 
-        enforcer = limit.Enforcer(lambda: None)
+        enforcer = limit.Enforcer(lambda: None)  # type: ignore
         limits = enforcer.get_project_limits(project_id, ["a", "b", "c"])
 
         mock_get_limits.assert_called_once_with(project_id, ["a", "b", "c"])
@@ -272,7 +274,7 @@ class TestFlatEnforcer(base.BaseTestCase):
     def test_get_registered_limits(self, mock_get_limits):
         mock_get_limits.return_value = [("a", 1), ("b", 0), ("c", 2)]
 
-        enforcer = limit._FlatEnforcer(lambda: None)
+        enforcer = limit._FlatEnforcer(lambda: None)  # type: ignore
         limits = enforcer.get_registered_limits(["a", "b", "c"])
 
         mock_get_limits.assert_called_once_with(["a", "b", "c"])
@@ -283,7 +285,7 @@ class TestFlatEnforcer(base.BaseTestCase):
         project_id = uuid.uuid4().hex
         mock_get_limits.return_value = [("a", 1), ("b", 0), ("c", 2)]
 
-        enforcer = limit._FlatEnforcer(lambda: None)
+        enforcer = limit._FlatEnforcer(lambda: None)  # type: ignore
         limits = enforcer.get_project_limits(project_id, ["a", "b", "c"])
 
         mock_get_limits.assert_called_once_with(project_id, ["a", "b", "c"])
@@ -627,7 +629,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.get_endpoint.return_value = fake_endpoint
 
         # a and c have limits, b doesn't have one
-        empty_iterator = iter([])
+        empty_iterator: Iterable[Any] = iter([])
 
         a = registered_limit.RegisteredLimit()
         a.resource_name = "a"
@@ -657,11 +659,13 @@ class TestEnforcerUtils(base.BaseTestCase):
         project_id = uuid.uuid4().hex
 
         # a is a project limit, b, c and d don't have one
-        empty_iterator = iter([])
+        empty_iterator: Iterable[Any] = iter([])
+
         a = klimit.Limit()
         a.resource_name = "a"
         a.resource_limit = 1
         a_iterator = iter([a])
+
         self.mock_conn.limits.side_effect = [
             a_iterator,
             empty_iterator,
@@ -674,6 +678,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         b.resource_name = "b"
         b.default_limit = 2
         b_iterator = iter([b])
+
         self.mock_conn.registered_limits.side_effect = [
             b_iterator,
             empty_iterator,
@@ -697,6 +702,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         utils = limit._EnforcerUtils(cache=cache)
         foo_limit = utils._get_project_limit(project_id, 'foo')
 
+        assert foo_limit is not None  # narrow type
         self.assertEqual(3, foo_limit.resource_limit)
         self.assertEqual(1, fix.mock_conn.limits.call_count)
 
@@ -719,6 +725,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         utils = limit._EnforcerUtils(cache=cache)
         foo_limit = utils._get_registered_limit('foo')
 
+        assert foo_limit is not None  # narrow type
         self.assertEqual(5, foo_limit.default_limit)
         self.assertEqual(1, fix.mock_conn.registered_limits.call_count)
 
