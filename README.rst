@@ -1,14 +1,10 @@
-========================
-Team and repository tags
-========================
-
-.. image:: https://governance.openstack.org/tc/badges/oslo.limit.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-
 ==========
 oslo.limit
 ==========
+
+.. image:: https://governance.openstack.org/tc/badges/oslo.limit.svg
+
+.. Change things from this point on
 
 .. image:: https://img.shields.io/pypi/v/oslo.limit.svg
     :target: https://pypi.python.org/pypi/oslo.limit/
@@ -17,8 +13,6 @@ oslo.limit
 .. image:: https://img.shields.io/pypi/dm/oslo.limit.svg
     :target: https://pypi.python.org/pypi/oslo.limit/
     :alt: Downloads
-
-
 
 Oslo.limit is the limit enforcement library to assist with quota calculation.
 It aims to provide support for quota enforcement across all OpenStack services.
