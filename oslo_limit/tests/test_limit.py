@@ -474,7 +474,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         )
         fake_service = service.Service(id='SERVICE_ID')
         self.mock_conn.services.return_value = [fake_service]
-        self.mock_conn.endpoints.side_effect = os_exceptions.ResourceNotFound
+        self.mock_conn.endpoints.return_value = []
 
         self.assertRaises(
             ValueError,
@@ -518,7 +518,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.config_fixture.config(
             group='oslo_limit', endpoint_service_name='SERVICE_NAME'
         )
-        self.mock_conn.services.side_effect = os_exceptions.ResourceNotFound
+        self.mock_conn.services.return_value = []
 
         self.assertRaises(
             ValueError,
@@ -574,7 +574,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.services.return_value = [fake_service]
         fake_endpoint = endpoint.Endpoint()
         self.mock_conn.endpoints.return_value = [fake_endpoint]
-        self.mock_conn.regions.side_effect = os_exceptions.ResourceNotFound
+        self.mock_conn.regions.return_value = []
 
         self.assertRaises(
             ValueError,
