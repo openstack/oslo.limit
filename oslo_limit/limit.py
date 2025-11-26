@@ -366,56 +366,69 @@ class _EnforcerUtils:
             endpoint = self.connection.get_endpoint(endpoint_id)  # type: ignore
         except os_exceptions.ResourceNotFound:
             raise ValueError(f"Can't find endpoint for {endpoint_id}")
+
         return cast(_endpoint.Endpoint, endpoint)
 
     def _get_endpoint_by_service_lookup(self) -> _endpoint.Endpoint:
         service_type = CONF.oslo_limit.endpoint_service_type
         service_name = CONF.oslo_limit.endpoint_service_name
+
         if not service_type and not service_name:
             raise ValueError(
                 "Either service_type or service_name should be set"
             )
 
-        try:
-            services = self.connection.services(  # type: ignore
-                type=service_type, name=service_name
-            )
-            services = list(services)
-            if len(services) > 1:
-                raise ValueError("Multiple services found")
-            service_id = services[0].id
-        except os_exceptions.ResourceNotFound:
+        # find service
+
+        services = self.connection.services(  # type: ignore
+            type=service_type, name=service_name
+        )
+        services = list(services)
+
+        if len(services) > 1:
+            raise ValueError("Multiple services found")
+
+        if len(services) == 0:
             raise ValueError("Service not found")
 
+        service_id = services[0].id
+
+        # find region (if any)
+
         if CONF.oslo_limit.endpoint_region_name is not None:
-            try:
-                regions = self.connection.regions(  # type: ignore
-                    name=CONF.oslo_limit.endpoint_region_name
-                )
-                regions = list(regions)
-                if len(regions) > 1:
-                    raise ValueError("Multiple regions found")
-                region_id = regions[0].id
-            except os_exceptions.ResourceNotFound:
+            regions = self.connection.regions(  # type: ignore
+                name=CONF.oslo_limit.endpoint_region_name
+            )
+            regions = list(regions)
+
+            if len(regions) > 1:
+                raise ValueError("Multiple regions found")
+
+            if len(regions) == 0:
                 raise ValueError("Region not found")
+
+            region_id = regions[0].id
         else:
             region_id = None
+
+        # find endpoint
 
         interface = CONF.oslo_limit.endpoint_interface
         if interface.endswith('URL'):
             interface = interface[:-3]
-        try:
-            endpoints = self.connection.endpoints(  # type: ignore
-                service_id=service_id,
-                region_id=region_id,
-                interface=interface,
-            )
-            endpoints = list(endpoints)
-        except os_exceptions.ResourceNotFound:
-            raise ValueError("Endpoint not found")
+
+        endpoints = self.connection.endpoints(  # type: ignore
+            service_id=service_id,
+            region_id=region_id,
+            interface=interface,
+        )
+        endpoints = list(endpoints)
 
         if len(endpoints) > 1:
             raise ValueError("Multiple endpoints found")
+
+        if len(endpoints) == 0:
+            raise ValueError("Endpoint not found")
 
         return cast(_endpoint.Endpoint, endpoints[0])
 
