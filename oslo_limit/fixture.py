@@ -15,9 +15,41 @@ from unittest import mock
 
 import fixtures as fixtures
 
-from openstack.identity.v3 import endpoint
-from openstack.identity.v3 import limit as keystone_limit
-from openstack.identity.v3 import registered_limit as keystone_rlimit
+from openstack.identity.v3 import endpoint as _endpoint
+from openstack.identity.v3 import limit as _limit
+from openstack.identity.v3 import region as _region
+from openstack.identity.v3 import registered_limit as _registered_limit
+from openstack.identity.v3 import service as _service
+from openstack.test import fakes as sdk_fakes
+
+
+def _fake_services(**query):
+    # we are the only ones calling this, so we know exactly what we should be
+    # calling it with
+    assert set(query) == {'type', 'name'}  # nosec: B101
+    yield sdk_fakes.generate_fake_resource(
+        _service.Service, type=query['type'], name=query['name']
+    )
+
+
+def _fake_regions(**query):
+    # we are the only ones calling this, so we know exactly what we should be
+    # calling it with
+    assert set(query) == {'name'}  # nosec: B101
+    yield sdk_fakes.generate_fake_resource(_region.Region, name=query['name'])
+
+
+def _fake_endpoints(**query):
+    # we are the only ones calling this, so we know exactly what we should be
+    # calling it with
+    assert set(query) == {
+        'service_id', 'region_id', 'interface'}  # nosec: B101
+    yield sdk_fakes.generate_fake_resource(
+        _endpoint.Endpoint,
+        service_id=query['service_id'],
+        region_id=query['region_id'],
+        interface=query['interface'],
+    )
 
 
 class LimitFixture(fixtures.Fixture):
@@ -39,15 +71,19 @@ class LimitFixture(fixtures.Fixture):
 
     def get_reglimit_objects(
             self, service_id=None, region_id=None, resource_name=None):
-        limits = []
+        registered_limits = []
         for name, value in self.reglimits.items():
             if resource_name and resource_name != name:
                 continue
-            limit = keystone_rlimit.RegisteredLimit()
-            limit.resource_name = name
-            limit.default_limit = value
-            limits.append(limit)
-        return limits
+
+            registered_limit = sdk_fakes.generate_fake_resource(
+                _registered_limit.RegisteredLimit,
+                resource_name=name,
+                default_limit=value,
+            )
+            registered_limits.append(registered_limit)
+
+        return registered_limits
 
     def get_projlimit_objects(
             self, service_id=None, region_id=None, resource_name=None,
@@ -59,11 +95,14 @@ class LimitFixture(fixtures.Fixture):
             for name, value in limit_dict.items():
                 if resource_name and resource_name != name:
                     continue
-                limit = keystone_limit.Limit()
-                limit.project_id = proj_id
-                limit.resource_name = name
-                limit.resource_limit = value
+                limit = sdk_fakes.generate_fake_resource(
+                    _limit.Limit,
+                    resource_name=name,
+                    resource_limit=value,
+                    project_id=proj_id,
+                )
                 limits.append(limit)
+
         return limits
 
     def setUp(self):
@@ -80,12 +119,21 @@ class LimitFixture(fixtures.Fixture):
                                '_get_enforcement_model')).mock
         mock_gem.return_value = 'flat'
 
-        # Fake keystone endpoint; no per-service limit distinction
-        fake_endpoint = endpoint.Endpoint()
-        fake_endpoint.service_id = "service_id"
-        fake_endpoint.region_id = "region_id"
+        # Fake keystone endpoint; this can be requested by ID or by name and we
+        # need to handle both. First, requests by ID
+        fake_endpoint = sdk_fakes.generate_fake_resource(
+            _endpoint.Endpoint,
+            service_id='service_id',
+            region_id='region_id',
+        )
         self.mock_conn.get_endpoint.return_value = fake_endpoint
 
+        # Then, requests by name
+        self.mock_conn.services.side_effect = _fake_services
+        self.mock_conn.regions.side_effect = _fake_regions
+        self.mock_conn.endpoints.side_effect = _fake_endpoints
+
+        # Finally, fake the actual limits and registered limits calls
         self.mock_conn.limits.side_effect = self.get_projlimit_objects
         self.mock_conn.registered_limits.side_effect = (
             self.get_reglimit_objects)
