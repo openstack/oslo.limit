@@ -322,18 +322,14 @@ class _EnforcerUtils:
         # find region (if any)
 
         if CONF.oslo_limit.endpoint_region_name is not None:
-            regions = self.connection.regions(
-                name=CONF.oslo_limit.endpoint_region_name
-            )
-            regions = list(regions)
-
-            if len(regions) > 1:
-                raise ValueError("Multiple regions found")
-
-            if len(regions) == 0:
+            try:
+                region = self.connection.get_region(
+                    CONF.oslo_limit.endpoint_region_name
+                )
+            except os_exceptions.ResourceNotFound:
                 raise ValueError("Region not found")
 
-            region_id = regions[0].id
+            region_id = region.id
         else:
             region_id = None
 

@@ -32,11 +32,13 @@ def _fake_services(**query):
     )
 
 
-def _fake_regions(**query):
-    # we are the only ones calling this, so we know exactly what we should be
-    # calling it with
-    assert set(query) == {'name'}  # nosec: B101
-    yield sdk_fakes.generate_fake_resource(_region.Region, name=query['name'])
+def _fake_region(region) -> _region.Region:
+    if isinstance(region, str):
+        region_id = region
+    else:
+        region_id = region.id
+
+    return sdk_fakes.generate_fake_resource(_region.Region, id=region_id)
 
 
 def _fake_endpoints(**query):
@@ -130,7 +132,7 @@ class LimitFixture(fixtures.Fixture):
 
         # Then, requests by name
         self.mock_conn.services.side_effect = _fake_services
-        self.mock_conn.regions.side_effect = _fake_regions
+        self.mock_conn.get_region.side_effect = _fake_region
         self.mock_conn.endpoints.side_effect = _fake_endpoints
 
         # Finally, fake the actual limits and registered limits calls
