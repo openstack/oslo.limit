@@ -535,7 +535,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         fake_endpoint = endpoint.Endpoint()
         self.mock_conn.endpoints.return_value = [fake_endpoint]
         fake_region = region.Region(id='REGION_ID')
-        self.mock_conn.regions.return_value = [fake_region]
+        self.mock_conn.get_region.return_value = fake_region
 
         utils = limit._EnforcerUtils()
 
@@ -544,7 +544,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.services.assert_called_once_with(
             type='SERVICE_TYPE', name='SERVICE_NAME'
         )
-        self.mock_conn.regions.assert_called_once_with(name='regionOne')
+        self.mock_conn.get_region.assert_called_once_with('regionOne')
         self.mock_conn.endpoints.assert_called_once_with(
             service_id='SERVICE_ID', region_id='REGION_ID', interface='public'
         )
@@ -564,7 +564,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.services.return_value = [fake_service]
         fake_endpoint = endpoint.Endpoint()
         self.mock_conn.endpoints.return_value = [fake_endpoint]
-        self.mock_conn.regions.return_value = []
+        self.mock_conn.get_region.side_effect = os_exceptions.ResourceNotFound
 
         self.assertRaises(ValueError, limit._EnforcerUtils)
 
@@ -572,36 +572,7 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.services.assert_called_once_with(
             type='SERVICE_TYPE', name='SERVICE_NAME'
         )
-        self.mock_conn.regions.assert_called_once_with(name='regionOne')
-        self.mock_conn.endpoints.assert_not_called()
-
-    def test_get_endpoint_lookup_with_mutliple_regions(self):
-        self.config_fixture.config(group='oslo_limit', endpoint_id=None)
-        self.config_fixture.config(
-            group='oslo_limit', endpoint_service_type='SERVICE_TYPE'
-        )
-        self.config_fixture.config(
-            group='oslo_limit', endpoint_service_name='SERVICE_NAME'
-        )
-        self.config_fixture.config(
-            group='oslo_limit', endpoint_region_name='regionOne'
-        )
-        fake_service = service.Service(id='SERVICE_ID')
-        self.mock_conn.services.return_value = [fake_service]
-        fake_endpoint = endpoint.Endpoint()
-        self.mock_conn.endpoints.return_value = [fake_endpoint]
-        self.mock_conn.regions.return_value = [
-            region.Region(id='REGION_ID1'),
-            region.Region(id='REGION_ID2'),
-        ]
-
-        self.assertRaises(ValueError, limit._EnforcerUtils)
-
-        self.mock_conn.get_endpoint.assert_not_called()
-        self.mock_conn.services.assert_called_once_with(
-            type='SERVICE_TYPE', name='SERVICE_NAME'
-        )
-        self.mock_conn.regions.assert_called_once_with(name='regionOne')
+        self.mock_conn.get_region.assert_called_once_with('regionOne')
         self.mock_conn.endpoints.assert_not_called()
 
     def test_get_registered_limit_empty(self):
