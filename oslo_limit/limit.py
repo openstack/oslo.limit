@@ -37,7 +37,7 @@ _SDK_CONNECTION: _identity_proxy.Proxy | None = None
 
 ProjectUsage = namedtuple('ProjectUsage', ['limit', 'usage'])
 
-UsageCallbackT: TypeAlias = Callable[[str, list[str]], dict[str, int]]
+UsageCallbackT: TypeAlias = Callable[[str | None, list[str]], dict[str, int]]
 
 opts.register_opts(CONF)
 
@@ -54,14 +54,16 @@ class _EnforcerImplProtocol(Protocol):
     ) -> list[tuple[str, int]]: ...
 
     def get_project_limits(
-        self, project_id: str, resource_names: list[str]
+        self, project_id: str | None, resource_names: list[str]
     ) -> list[tuple[str, int]]: ...
 
     def get_project_usage(
-        self, project_id: str, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: list[str]
     ) -> dict[str, int]: ...
 
-    def enforce(self, project_id: str, deltas: dict[str, int]) -> None: ...
+    def enforce(
+        self, project_id: str | None, deltas: dict[str, int]
+    ) -> None: ...
 
 
 def _get_keystone_connection() -> _identity_proxy.Proxy:
@@ -114,10 +116,8 @@ class Enforcer:
         :param usage_callback: A callable function that accepts a project_id
                                string as a parameter and calculates the current
                                usage of a resource.
-        :type usage_callback: callable function
         :param cache: Whether to cache resource limits for the lifetime of this
                       enforcer. Defaults to True.
-        :type cache: boolean
         """
         if not callable(usage_callback):
             msg = 'usage_callback must be a callable function.'
@@ -140,7 +140,7 @@ class Enforcer:
                 return impl(usage_callback, cache=cache)
         raise ValueError(f"enforcement model {model} is not supported")
 
-    def enforce(self, project_id: str, deltas: dict[str, int]) -> None:
+    def enforce(self, project_id: str | None, deltas: dict[str, int]) -> None:
         """Check resource usage against limits for resources in deltas
 
         From the deltas we extract the list of resource types that need to
@@ -167,12 +167,10 @@ class Enforcer:
 
         :param project_id: The project to check usage and enforce limits
                            against (or None).
-        :type project_id: string
         :param deltas: An dictionary containing resource names as keys and
                        requests resource quantities as positive integers.
                        We only check limits for resources in deltas.
                        Specify a quantity of zero to check current usage.
-        :type deltas: dictionary
 
         :raises exception.ClaimExceedsLimit: when over limits
 
@@ -182,6 +180,7 @@ class Enforcer:
         ):
             msg = 'project_id must be a non-empty string or None.'
             raise ValueError(msg)
+
         if not isinstance(deltas, dict) or len(deltas) == 0:
             msg = 'deltas must be a non-empty dictionary.'
             raise ValueError(msg)
@@ -195,7 +194,7 @@ class Enforcer:
         self.model.enforce(project_id, deltas)
 
     def calculate_usage(
-        self, project_id: str, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: list[str]
     ) -> dict[str, ProjectUsage]:
         """Calculate resource usage and limits for resources_to_check.
 
@@ -209,9 +208,7 @@ class Enforcer:
 
         :param project_id: The project for which to check usage and limits,
                            or None.
-        :type project_id: string
         :param resources_to_check: A list of resource names to query.
-        :type resources_to_check: list
         :returns: A dictionary of name:limit.ProjectUsage for the
                   requested names against the provided project.
         """
@@ -249,7 +246,7 @@ class Enforcer:
         return self.model.get_registered_limits(resources_to_check)
 
     def get_project_limits(
-        self, project_id: str, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: list[str]
     ) -> list[tuple[str, int]]:
         return self.model.get_project_limits(project_id, resources_to_check)
 
@@ -269,16 +266,16 @@ class _FlatEnforcer:
         return self._utils.get_registered_limits(resources_to_check)
 
     def get_project_limits(
-        self, project_id: str, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: list[str]
     ) -> list[tuple[str, int]]:
         return self._utils.get_project_limits(project_id, resources_to_check)
 
     def get_project_usage(
-        self, project_id: str, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: list[str]
     ) -> dict[str, int]:
         return self._usage_callback(project_id, resources_to_check)
 
-    def enforce(self, project_id: str, deltas: dict[str, int]) -> None:
+    def enforce(self, project_id: str | None, deltas: dict[str, int]) -> None:
         resources_to_check = list(deltas.keys())
         # Always check the limits in the same order, for predictable errors
         resources_to_check.sort()
@@ -307,16 +304,16 @@ class _StrictTwoLevelEnforcer:
         raise NotImplementedError()
 
     def get_project_limits(
-        self, project_id: str, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: list[str]
     ) -> list[tuple[str, int]]:
         raise NotImplementedError()
 
     def get_project_usage(
-        self, project_id: str, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: list[str]
     ) -> dict[str, int]:
         raise NotImplementedError()
 
-    def enforce(self, project_id: str, deltas: dict[str, int]) -> None:
+    def enforce(self, project_id: str | None, deltas: dict[str, int]) -> None:
         raise NotImplementedError()
 
 
@@ -434,7 +431,7 @@ class _EnforcerUtils:
 
     @staticmethod
     def enforce_limits(
-        project_id: str,
+        project_id: str | None,
         limits: list[tuple[str, int]],
         current_usage: dict[str, int],
         deltas: dict[str, int],
@@ -506,13 +503,6 @@ class _EnforcerUtils:
         return registered_limits
 
     def _get_project_limits(self, project_id: str) -> list[tuple[str, int]]:
-        if project_id is None:
-            # If we were to pass None, we would receive limits for all projects
-            # and we would have to return {project_id: [(name, limit), ...]}
-            # which would be inconsistent with the return format of the other
-            # methods.
-            raise ValueError('project_id must not be None')
-
         project_limits = []
         proj_limits = self.connection.limits(  # type: ignore
             service_id=self._service_id,
@@ -527,7 +517,7 @@ class _EnforcerUtils:
         return project_limits
 
     def get_project_limits(
-        self, project_id: str, resource_names: list[str] | None
+        self, project_id: str | None, resource_names: list[str] | None
     ) -> list[tuple[str, int]]:
         """Get all the limits for given project a resource_name list
 
@@ -541,6 +531,13 @@ class _EnforcerUtils:
         # If None was passed for resource_names, get and return all of the
         # limits.
         if resource_names is None:
+            if project_id is None:
+                # If we were to pass None, we would receive limits for all
+                # projects and we would have to return {project_id: [(name,
+                # limit), ...]} which would be inconsistent with the return
+                # format of the other methods.
+                raise ValueError('project_id must not be None')
+
             return self._get_project_limits(project_id)
 
         # Using a list to preserver the resource_name order
