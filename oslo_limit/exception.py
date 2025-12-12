@@ -16,7 +16,7 @@ from oslo_limit._i18n import _
 class ProjectOverLimit(Exception):
     def __init__(
         self,
-        project_id: str,
+        project_id: str | None,
         over_limit_info_list: list['OverLimitInfo'],
     ) -> None:
         """Exception raised when a project goes over one or more limits
