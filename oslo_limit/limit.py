@@ -10,12 +10,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable
-from collections import defaultdict
-from collections import namedtuple
-from typing import cast
-from typing import Protocol
-from typing import TypeAlias
+from collections.abc import Callable, Collection
+from collections import defaultdict, namedtuple
+from typing import cast, Protocol, TypeAlias
 
 from keystoneauth1 import exceptions as ksa_exceptions
 from keystoneauth1 import loading
@@ -37,7 +34,9 @@ _SDK_CONNECTION: _identity_proxy.Proxy | None = None
 
 ProjectUsage = namedtuple('ProjectUsage', ['limit', 'usage'])
 
-UsageCallbackT: TypeAlias = Callable[[str | None, list[str]], dict[str, int]]
+UsageCallbackT: TypeAlias = Callable[
+    [str | None, Collection[str]], dict[str, int]
+]
 
 opts.register_opts(CONF)
 
@@ -50,15 +49,15 @@ class _EnforcerImplProtocol(Protocol):
     ) -> None: ...
 
     def get_registered_limits(
-        self, resources_to_check: list[str]
+        self, resources_to_check: Collection[str]
     ) -> list[tuple[str, int]]: ...
 
     def get_project_limits(
-        self, project_id: str | None, resource_names: list[str]
+        self, project_id: str | None, resource_names: Collection[str]
     ) -> list[tuple[str, int]]: ...
 
     def get_project_usage(
-        self, project_id: str | None, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: Collection[str]
     ) -> dict[str, int]: ...
 
     def enforce(
@@ -194,7 +193,7 @@ class Enforcer:
         self.model.enforce(project_id, deltas)
 
     def calculate_usage(
-        self, project_id: str | None, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: Collection[str]
     ) -> dict[str, ProjectUsage]:
         """Calculate resource usage and limits for resources_to_check.
 
@@ -241,12 +240,12 @@ class Enforcer:
         }
 
     def get_registered_limits(
-        self, resources_to_check: list[str]
+        self, resources_to_check: Collection[str]
     ) -> list[tuple[str, int]]:
         return self.model.get_registered_limits(resources_to_check)
 
     def get_project_limits(
-        self, project_id: str | None, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: Collection[str]
     ) -> list[tuple[str, int]]:
         return self.model.get_project_limits(project_id, resources_to_check)
 
@@ -261,17 +260,17 @@ class _FlatEnforcer:
         self._utils = _EnforcerUtils(cache=cache)
 
     def get_registered_limits(
-        self, resources_to_check: list[str]
+        self, resources_to_check: Collection[str]
     ) -> list[tuple[str, int]]:
         return self._utils.get_registered_limits(resources_to_check)
 
     def get_project_limits(
-        self, project_id: str | None, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: Collection[str]
     ) -> list[tuple[str, int]]:
         return self._utils.get_project_limits(project_id, resources_to_check)
 
     def get_project_usage(
-        self, project_id: str | None, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: Collection[str]
     ) -> dict[str, int]:
         return self._usage_callback(project_id, resources_to_check)
 
@@ -299,17 +298,17 @@ class _StrictTwoLevelEnforcer:
         self._usage_callback = usage_callback
 
     def get_registered_limits(
-        self, resources_to_check: list[str]
+        self, resources_to_check: Collection[str]
     ) -> list[tuple[str, int]]:
         raise NotImplementedError()
 
     def get_project_limits(
-        self, project_id: str | None, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: Collection[str]
     ) -> list[tuple[str, int]]:
         raise NotImplementedError()
 
     def get_project_usage(
-        self, project_id: str | None, resources_to_check: list[str]
+        self, project_id: str | None, resources_to_check: Collection[str]
     ) -> dict[str, int]:
         raise NotImplementedError()
 
@@ -428,7 +427,7 @@ class _EnforcerUtils:
     @staticmethod
     def enforce_limits(
         project_id: str | None,
-        limits: list[tuple[str, int]],
+        limits: Collection[tuple[str, int]],
         current_usage: dict[str, int],
         deltas: dict[str, int],
     ) -> None:
@@ -474,7 +473,7 @@ class _EnforcerUtils:
         return registered_limits
 
     def get_registered_limits(
-        self, resource_names: list[str] | None
+        self, resource_names: Collection[str] | None
     ) -> list[tuple[str, int]]:
         """Get all the default limits for a given resource name list
 
@@ -513,7 +512,7 @@ class _EnforcerUtils:
         return project_limits
 
     def get_project_limits(
-        self, project_id: str | None, resource_names: list[str] | None
+        self, project_id: str | None, resource_names: Collection[str] | None
     ) -> list[tuple[str, int]]:
         """Get all the limits for given project a resource_name list
 
