@@ -407,6 +407,12 @@ class _EnforcerUtils:
 
         interface = CONF.oslo_limit.endpoint_interface
         if interface.endswith('URL'):
+            LOG.info(
+                "'[oslo_limit] endpoint_interface' is configured with a "
+                "deprecated value: %s. Remove the URL suffix, which is not "
+                "relevant for Keystone v3 API.",
+                interface,
+            )
             interface = interface[:-3]
 
         endpoints = self.connection.endpoints(  # type: ignore

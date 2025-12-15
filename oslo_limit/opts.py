@@ -41,7 +41,7 @@ _options = [
     ),
     cfg.StrOpt(
         'endpoint_interface',
-        default='publicURL',
+        default='public',
         choices=[
             'public',
             'publicURL',
