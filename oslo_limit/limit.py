@@ -22,6 +22,7 @@ from openstack.identity.v3 import _proxy as _identity_proxy
 from openstack.identity.v3 import endpoint as _endpoint
 from openstack.identity.v3 import limit as _limit
 from openstack.identity.v3 import registered_limit as _registered_limit
+from openstack import utils as os_utils
 from oslo_config import cfg
 from oslo_log import log
 
@@ -87,9 +88,10 @@ def _get_keystone_connection() -> _identity_proxy.Proxy:
             conn_kwargs['identity_interface'] = (
                 CONF.oslo_limit.valid_interfaces
             )
-            _SDK_CONNECTION = connection.Connection(
-                session=session, **conn_kwargs
-            ).identity
+            conn = connection.Connection(session=session, **conn_kwargs)
+            _SDK_CONNECTION = os_utils.ensure_service_version(
+                conn.identity, '3'
+            )
         except (
             ksa_exceptions.NoMatchingPlugin,
             ksa_exceptions.MissingRequiredOptions,
