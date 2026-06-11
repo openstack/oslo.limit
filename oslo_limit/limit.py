@@ -361,11 +361,9 @@ class _EnforcerUtils:
             return None
 
         try:
-            endpoint = self.connection.get_endpoint(endpoint_id)  # type: ignore
+            return self.connection.get_endpoint(endpoint_id)
         except os_exceptions.ResourceNotFound:
             raise ValueError(f"Can't find endpoint for {endpoint_id}")
-
-        return cast(_endpoint.Endpoint, endpoint)
 
     def _get_endpoint_by_service_lookup(self) -> _endpoint.Endpoint:
         service_type = CONF.oslo_limit.endpoint_service_type
@@ -378,10 +376,9 @@ class _EnforcerUtils:
 
         # find service
 
-        services = self.connection.services(  # type: ignore
-            type=service_type, name=service_name
+        services = list(
+            self.connection.services(type=service_type, name=service_name)
         )
-        services = list(services)
 
         if len(services) > 1:
             raise ValueError("Multiple services found")
@@ -395,7 +392,7 @@ class _EnforcerUtils:
 
         if CONF.oslo_limit.endpoint_region_name is not None:
             try:
-                region = self.connection.get_region(  # type: ignore
+                region = self.connection.get_region(
                     CONF.oslo_limit.endpoint_region_name
                 )
             except os_exceptions.ResourceNotFound:
@@ -417,12 +414,13 @@ class _EnforcerUtils:
             )
             interface = interface[:-3]
 
-        endpoints = self.connection.endpoints(  # type: ignore
-            service_id=service_id,
-            region_id=region_id,
-            interface=interface,
+        endpoints = list(
+            self.connection.endpoints(
+                service_id=service_id,
+                region_id=region_id,
+                interface=interface,
+            )
         )
-        endpoints = list(endpoints)
 
         if len(endpoints) > 1:
             raise ValueError("Multiple endpoints found")
@@ -430,7 +428,7 @@ class _EnforcerUtils:
         if len(endpoints) == 0:
             raise ValueError("Endpoint not found")
 
-        return cast(_endpoint.Endpoint, endpoints[0])
+        return endpoints[0]
 
     @staticmethod
     def enforce_limits(
@@ -470,7 +468,7 @@ class _EnforcerUtils:
 
     def _get_registered_limits(self) -> list[tuple[str, int]]:
         registered_limits = []
-        reg_limits = self.connection.registered_limits(  # type: ignore
+        reg_limits = self.connection.registered_limits(
             service_id=self._service_id, region_id=self._region_id
         )
         for reg_limit in reg_limits:
@@ -507,7 +505,7 @@ class _EnforcerUtils:
 
     def _get_project_limits(self, project_id: str) -> list[tuple[str, int]]:
         project_limits = []
-        proj_limits = self.connection.limits(  # type: ignore
+        proj_limits = self.connection.limits(
             service_id=self._service_id,
             region_id=self._region_id,
             project_id=project_id,
@@ -598,7 +596,7 @@ class _EnforcerUtils:
             return self.plimit_cache[project_id][resource_name]
 
         # Get the limits from keystone.
-        limits = self.connection.limits(  # type: ignore
+        limits = self.connection.limits(
             service_id=self._service_id,
             region_id=self._region_id,
             project_id=project_id,
@@ -624,7 +622,7 @@ class _EnforcerUtils:
             return self.rlimit_cache[resource_name]
 
         # Get the limits from keystone.
-        reg_limits = self.connection.registered_limits(  # type: ignore
+        reg_limits = self.connection.registered_limits(
             service_id=self._service_id, region_id=self._region_id
         )
         reg_limit = None
