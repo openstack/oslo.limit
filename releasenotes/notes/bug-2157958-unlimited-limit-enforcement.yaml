@@ -1,0 +1,6 @@
+---
+fixes:
+  - |
+    `bug 2157958` <https://bugs.launchpad.net/keystone/+bug/2157958>`_:
+    Fixed enforcement of registered limits set to -1 (unlimited). Requests
+    are no longer rejected when usage plus delta exceeds a limit of -1.
