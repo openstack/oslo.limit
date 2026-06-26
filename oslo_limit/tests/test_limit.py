@@ -334,6 +334,21 @@ class TestFlatEnforcer(base.BaseTestCase):
         self.assertEqual(0, over_a.current_usage)
         self.assertEqual(2, over_a.delta)
 
+    @mock.patch.object(limit._EnforcerUtils, "get_project_limits")
+    def test_enforce_unlimited_limit(self, mock_get_limits):
+        mock_usage = mock.MagicMock()
+
+        project_id = uuid.uuid4().hex
+        deltas = {"a": 1}
+        mock_get_limits.return_value = [("a", -1)]
+        mock_usage.return_value = {"a": 0}
+
+        enforcer = limit._FlatEnforcer(mock_usage)
+        enforcer.enforce(project_id, deltas)
+
+        mock_get_limits.assert_called_once_with(project_id, ["a"])
+        mock_usage.assert_called_once_with(project_id, ["a"])
+
     @mock.patch.object(limit._EnforcerUtils, "_get_project_limit")
     @mock.patch.object(limit._EnforcerUtils, "_get_registered_limit")
     def test_enforce_raises_on_missing_limit(
@@ -378,6 +393,32 @@ class TestEnforcerUtils(base.BaseTestCase):
         self.mock_conn.get_endpoint.assert_called_once_with('ENDPOINT_ID')
         self.mock_conn.services.assert_not_called()
         self.mock_conn.endpoints.assert_not_called()
+
+    def test_enforce_limits_unlimited(self):
+        limit._EnforcerUtils.enforce_limits(
+            'project',
+            [('a', -1)],
+            {'a': 0},
+            {'a': 1},
+        )
+
+    def test_enforce_limits_unlimited_with_usage(self):
+        limit._EnforcerUtils.enforce_limits(
+            'project',
+            [('a', -1)],
+            {'a': 1000},
+            {'a': 500},
+        )
+
+    def test_enforce_limits_still_enforces_finite_limits(self):
+        self.assertRaises(
+            exception.ProjectOverLimit,
+            limit._EnforcerUtils.enforce_limits,
+            'project',
+            [('a', 10)],
+            {'a': 9},
+            {'a': 2},
+        )
 
     def test_get_endpoint_no_id(self):
         self.config_fixture.config(group='oslo_limit', endpoint_id=None)

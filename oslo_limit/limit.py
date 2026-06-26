@@ -454,6 +454,9 @@ class _EnforcerUtils:
 
             current = int(current_usage[resource_name])
             delta = int(deltas[resource_name])
+            # Keystone unified limits use -1 to represent unlimited.
+            if limit < 0:
+                continue
             proposed_usage_total = current + delta
             if proposed_usage_total > limit:
                 over_limit_list.append(
