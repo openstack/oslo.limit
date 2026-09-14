@@ -36,7 +36,7 @@ Repository = "https://opendev.org/openstack/oslo.limit"
 "oslo.limit" = "oslo_limit.opts:list_opts"
 
 [tool.setuptools.packages.find]
-include = ["oslo_limit"]
+include = ["oslo_limit*"]
 
 [tool.mypy]
 python_version = "3.11"
