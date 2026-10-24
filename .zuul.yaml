@@ -1,21 +1,11 @@
 ---
-
 - job:
     name: oslo-limit-functional-devstack
-    parent: devstack
+    parent: devstack-tox-functional
     description:
-      This job sets up a minimal devstack deployment, configures various usage
-      and limit scenarios, and verifies usage enforcement based on existing
-      usage.
-    timeout: 9000
+      This job sets up a minimal devstack deployment and verify the behavior
+      against the real APIs.
     vars:
-      devstack_localrc:
-        DATABASE_PASSWORD: secretdatabase
-        ADMIN_PASSWORD: secretadmin
-        LOGFILE: /opt/stack/logs/devstacklog.txt
-        LOG_COLOR: false
-        VERBOSE: true
-        VERBOSE_NO_TIMESTAMP: true
       devstack_services:
         # Ignore all services by setting "disable_all_service". We do this
         # because we only really need keystone running to store unified limits.
@@ -25,6 +15,15 @@
         base: false
         mysql: true
         key: true
+    irrelevant-files:
+      - ^\.gitignore$
+      - ^\.gitreview$
+      - ^.*\.rst$
+      - ^doc/.*$
+      - LICENSE
+      - ^releasenotes/.*$
+      - ^\.pre-commit-config\.yaml$
+      - ^oslo_limit/tests/unit/.*$
 
 - project:
     templates:
